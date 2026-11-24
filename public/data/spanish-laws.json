@@ -1,7 +1,7 @@
 {
-  "source": "API Datos Abiertos del BOE (boe.es)",
-  "syncedAt": "2026-11-24T21:34:53.011Z",
-  "liveVerifiedCount": 4,
+  "source": "API Datos Abiertos y Diario Oficial del BOE (boe.es)",
+  "syncedAt": "2026-11-24T21:58:02.612Z",
+  "liveVerifiedCount": 5,
   "totalChapters": 5,
   "chapters": [
     {
@@ -65,12 +65,12 @@
       "summary": "Establece requisitos de gobernanza, trazabilidad y control interno en entidades de crédito, exigiendo supervisión humana efectiva sobre modelos automatizados.",
       "gap": "Delegar aprobaciones masivas en algoritmos sin bandeja de auditoría muestral ni registro de falsos positivos.",
       "protocol": "Revisar el historial de la cuenta, documentar el criterio seguido en el expediente y auditar periódicamente los casos aprobados por la IA.",
-      "officialTitle": "Control Interno, Riesgo Operacional y Supervisión Humana",
-      "lastConsolidated": "Compendio local vigente",
-      "publishedDate": "-",
-      "status": "Vigente",
-      "boeUrl": "https://www.boe.es/buscar/act.php?id=BOE-A-2017-14334",
-      "liveFetched": false
+      "officialTitle": "Circular 4/2017, de 27 de noviembre, del Banco de España, a entidades de crédito, sobre normas de información financiera pública y reservada, y modelos de estados financieros.",
+      "lastConsolidated": "01/01/2018",
+      "publishedDate": "06/12/2017",
+      "status": "Vigente (BOE)",
+      "boeUrl": "https://www.boe.es/buscar/doc.php?id=BOE-A-2017-14334",
+      "liveFetched": true
     },
     {
       "id": "ENS-RD311",
