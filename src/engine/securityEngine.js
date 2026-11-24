@@ -7,9 +7,77 @@ export const FEATURE_META = {
   failedAttemptsNorm: { label: 'Intentos fallidos de clave', short: 'Fallos acceso' },
 };
 
+export const SPANISH_LEGAL_COMPENDIUM = [
+  {
+    id: 'PSD2-SCA',
+    category: 'Pagos / PSD2',
+    code: 'Directiva PSD2 · RDL 19/2018 (SCA)',
+    title: 'Autenticación Reforzada de Clientes (SCA) y Exenciones TRA',
+    updated: 'Revisión 2026',
+    isNew: true,
+    summary:
+      'Exige al menos dos factores independientes (conocimiento, posesión o inherencia) en pagos electrónicos y accesos sensibles, salvo operaciones de bajo riesgo verificadas mediante análisis transaccional en tiempo real (TRA).',
+    gap: 'Vacío frecuente: reutilización de sesiones activas o tokens OAuth tras un cambio abrupto de geolocalización sin forzar re-autenticación.',
+    protocol:
+      'Si existe viaje imposible, dispositivo nuevo o >2 fallos de clave, revocar la sesión, bloquear preventivamente y exigir verificación 2FA fuera de banda.',
+  },
+  {
+    id: 'SEPBLAC-PBC',
+    category: 'Blanqueo / SEPBLAC',
+    code: 'Ley 10/2010 PBC-FT · Reglamento RD 304/2014',
+    title: 'Prevención de Blanqueo de Capitales y Diligencia Reforzada',
+    updated: 'Novedad 2026 (Paquete AML UE)',
+    isNew: true,
+    summary:
+      'Obliga a aplicar medidas reforzadas de diligencia debida ante transferencias internacionales atípicas, países de riesgo, importes elevados o fraccionamiento sistemático ("smurfing") destinado a eludir umbrales de control.',
+    gap: 'Vacío frecuente: pagos fraccionados en varias operaciones inferiores a 3.000 € hacia proveedores recién creados o jurisdicciones no cooperantes.',
+    protocol:
+      'Retener fondos preventivamente, solicitar factura/contrato justificativo y confirmar la orden telefónicamente con el apoderado de la cuenta.',
+  },
+  {
+    id: 'RGPD-ART32',
+    category: 'Datos / RGPD',
+    code: 'RGPD (UE 2016/679) · LOPDGDD Ley Orgánica 3/2018',
+    title: 'Art. 32 · Seguridad del Tratamiento y Trazabilidad de Accesos',
+    updated: 'Vigente 2026',
+    isNew: false,
+    summary:
+      'Exige garantizar la confidencialidad, integridad y resiliencia de los sistemas que tratan datos financieros, manteniendo registros de auditoría inalterables ante accesos desde dispositivos o redes no reconocidas.',
+    gap: 'Vacío frecuente: accesos administrativos desde redes Wi-Fi públicas o VPN comerciales sin huella de dispositivo registrada ni registro de motivo.',
+    protocol:
+      'Validar identidad mediante código OTP, registrar justificación saneada en auditoría y notificar incidencia al DPO si se confirma acceso ilícito.',
+  },
+  {
+    id: 'BDE-4-2017',
+    category: 'Banca / BdE',
+    code: 'Circular 4/2017 Banco de España · Guías EBA',
+    title: 'Control Interno, Fraude Operacional y Supervisión Humana',
+    updated: 'Vigente 2026',
+    isNew: false,
+    summary:
+      'Establece que los modelos automatizados de riesgo deben contar con gobernanza, explicabilidad auditable y supervisión humana efectiva (Human-in-the-Loop) para cualquier operación fuera del perfil histórico.',
+    gap: 'Vacío frecuente: delegar aprobaciones masivas en algoritmos sin bandeja de auditoría muestral ni registro de falsos positivos.',
+    protocol:
+      'Revisar el historial de la cuenta, documentar el criterio seguido en el expediente y auditar periódicamente las operaciones aprobadas automáticamente.',
+  },
+  {
+    id: 'ENS-RD311',
+    category: 'Seguridad / ENS',
+    code: 'Real Decreto 311/2022 · Esquema Nacional de Seguridad',
+    title: 'Protección contra Fuerza Bruta, Integridad y Control de Acceso',
+    updated: 'Vigente 2026',
+    isNew: false,
+    summary:
+      'Impone medidas técnicas verificables contra intentos repetitivos de autenticación (rate limiting), integridad criptográfica de logs (SHA-256) y saneamiento de entradas contra inyecciones de código.',
+    gap: 'Vacío frecuente: endpoints de login o APIs internas sin limitación por ventana deslizante ni claves de idempotencia ante reenvíos.',
+    protocol:
+      'Mantener bloqueo automático HTTP 429 activo, exigir tokens anti-CSRF y sellar criptográficamente los registros críticos de auditoría.',
+  },
+];
+
 export function createInitialModel() {
   return {
-    version: 'Sentinel-LogReg-2.2',
+    version: 'Sentinel-LogReg-2.3',
     learningRate: 0.12,
     regularization: 0.01,
     updatesCount: 0,
@@ -52,9 +120,6 @@ export function sanitizeNote(input, maxLen = 160) {
     .slice(0, maxLen);
 }
 
-/**
- * Protección contra CSV Formula Injection (ataques DDE en Excel)
- */
 export function escapeCsvCell(value) {
   const str = String(value ?? '').replace(/"/g, '""');
   const neutralized = /^[=+\-@\t\r]/.test(str) ? `'${str}` : str;
@@ -65,80 +130,90 @@ export function getSpanishLegalGuidance(event = {}, score = 0) {
   const amount = Number(event.amount) || 0;
 
   if (score === 0) {
+    const entry = SPANISH_LEGAL_COMPENDIUM.find((l) => l.id === 'PSD2-SCA');
     return {
+      lawId: entry.id,
       law: 'PSD2 · Art. 18 (Exención TRA)',
-      gap: 'Sin vacío crítico; se recomienda auditoría muestral para cumplir trazabilidad interna.',
-      guidance: 'Operación 100% segura. Aprobada por IA, disponible para verificación humana.',
+      gap: 'Sin vacío crítico; se recomienda verificación muestral para mantener trazabilidad.',
+      guidance: 'Operación 100 % segura. Aprobada por IA, disponible para auditoría humana.',
     };
   }
-  if (amount >= 3000 && event.foreignCountry) {
+  if (amount >= 2500 && event.foreignCountry) {
+    const entry = SPANISH_LEGAL_COMPENDIUM.find((l) => l.id === 'SEPBLAC-PBC');
     return {
-      law: 'Ley 10/2010 PBC-FT (SEPBLAC) · Diligencia reforzada',
-      gap: 'Vacío habitual: transferencias fraccionadas justo bajo umbrales de reporte automático.',
-      guidance: 'Retener preventivamente y exigir justificante documental + confirmación telefónica al titular.',
+      lawId: entry.id,
+      law: entry.code,
+      gap: entry.gap,
+      guidance: entry.protocol,
     };
   }
   if (event.impossibleTravel || (Number(event.failedAttempts) || 0) >= 3) {
+    const entry = SPANISH_LEGAL_COMPENDIUM.find((l) => l.id === 'PSD2-SCA');
     return {
-      law: 'Directiva PSD2 (SCA) · Autenticación Reforzada',
-      gap: 'Vacío habitual: reutilización de sesiones o tokens sin re-validación geográfica.',
-      guidance: 'Bloquear sesión de inmediato, revocar tokens activos y exigir doble factor (2FA).',
+      lawId: entry.id,
+      law: entry.code,
+      gap: entry.gap,
+      guidance: entry.protocol,
     };
   }
   if (event.unknownDevice) {
+    const entry = SPANISH_LEGAL_COMPENDIUM.find((l) => l.id === 'RGPD-ART32');
     return {
-      law: 'RGPD / LOPDGDD · Art. 32 (Seguridad del tratamiento)',
-      gap: 'Vacío habitual: accesos desde redes públicas o VPN sin huella de dispositivo registrada.',
-      guidance: 'Solicitar verificación OTP fuera de banda antes de autorizar cambios sensibles.',
+      lawId: entry.id,
+      law: entry.code,
+      gap: entry.gap,
+      guidance: entry.protocol,
     };
   }
+  const entry = SPANISH_LEGAL_COMPENDIUM.find((l) => l.id === 'BDE-4-2017');
   return {
-    law: 'Circular 4/2017 Banco de España · Control Interno',
-    gap: 'Posible anomalía de comportamiento fuera del perfil histórico del cliente.',
-    guidance: 'Revisar historial de la cuenta y dejar nota de auditoría antes de aprobar o denegar.',
+    lawId: entry.id,
+    law: entry.code,
+    gap: entry.gap,
+    guidance: entry.protocol,
   };
 }
 
 function classifyThreatProfile(event, score) {
   if (score === 0) {
     return {
-      threatCategory: 'Operación Verificada (100% Segura)',
+      threatCategory: 'Operación Verificada',
       actionAdvice: 'Sin anomalías · Aprobada por IA (auditable)',
     };
   }
   if (event.impossibleTravel && event.unknownDevice) {
     return {
-      threatCategory: 'Suplantación de Identidad (ATO)',
-      actionAdvice: 'Bloquear acceso y forzar cambio de credenciales',
+      threatCategory: 'Suplantación (ATO)',
+      actionAdvice: 'Bloquear acceso y revocar sesiones activas',
     };
   }
   if ((Number(event.amount) || 0) >= 3000 && event.foreignCountry) {
     return {
-      threatCategory: 'Fuga de Capital Internacional',
-      actionAdvice: 'Retener fondos y verificar por canal telefónico',
+      threatCategory: 'Fuga de Capital',
+      actionAdvice: 'Retener fondos y confirmar por teléfono',
     };
   }
   if ((Number(event.failedAttempts) || 0) >= 3) {
     return {
-      threatCategory: 'Intento de Fuerza Bruta',
+      threatCategory: 'Fuerza Bruta',
       actionAdvice: 'Bloquear origen y exigir doble factor (2FA)',
     };
   }
   if (event.foreignCountry) {
     return {
-      threatCategory: 'Operación Transfronteriza Atípica',
-      actionAdvice: 'Validar proveedor y factura con el titular',
+      threatCategory: 'Transferencia Atípica',
+      actionAdvice: 'Validar factura y beneficiario con titular',
     };
   }
   if (event.unknownDevice) {
     return {
-      threatCategory: 'Dispositivo No Reconocido',
+      threatCategory: 'Dispositivo Nuevo',
       actionAdvice: 'Confirmar identidad mediante código OTP',
     };
   }
   return {
     threatCategory: 'Anomalía Moderada',
-    actionAdvice: 'Revisar contexto legal antes de autorizar',
+    actionAdvice: 'Revisar historial y normativa antes de autorizar',
   };
 }
 
@@ -163,6 +238,10 @@ export function evaluateRiskEvent(event, model = createInitialModel()) {
     }
   }
 
+  // Ajuste contextual fino por canal o prima de riesgo de jurisdicción (sin alterar el entrenamiento base)
+  const contextDelta = Number(event.contextRiskDelta) || 0;
+  logit += contextDelta;
+
   contributions.sort((a, b) => Math.abs(b.impact) - Math.abs(a.impact));
 
   const probability = sigmoid(logit);
@@ -172,13 +251,14 @@ export function evaluateRiskEvent(event, model = createInitialModel()) {
     Boolean(event.impossibleTravel) ||
     Boolean(event.unknownDevice) ||
     (Number(event.failedAttempts) || 0) > 0 ||
-    (Number(event.amount) || 0) > 1500;
+    (Number(event.amount) || 0) > 1500 ||
+    contextDelta > 0.15;
 
   let score;
   if (!hasRiskFlags && probability < 0.22) {
     score = 0;
   } else {
-    score = Math.min(99, Math.max(12, Math.round(probability * 100)));
+    score = Math.min(99, Math.max(8, Math.round(probability * 100)));
   }
 
   let level = 'BAJO';
@@ -336,13 +416,13 @@ export function computeDashboardMetrics(events = [], aiEnabled = true) {
     threatLevel = 'VIGILANCIA';
   }
 
-  let statusDetail = `Óptimo · Sin riesgo activo`;
+  let statusDetail = 'Óptimo · Sin riesgo activo';
   if (!aiEnabled && pending > 0) {
-    statusDetail = `Manual (IA OFF) · ${pending} sin revisar (${pendingExposureEur.toLocaleString('es-ES')} € exp.)`;
+    statusDetail = `Modo Manual (IA OFF) · ${pending} en cola (${pendingExposureEur.toLocaleString('es-ES')} € exp.)`;
   } else if (criticalPending >= 2 || pending >= 4) {
     statusDetail = `Crítico · ${criticalPending} críticas · ${pendingExposureEur.toLocaleString('es-ES')} € en riesgo`;
   } else if (pending > 0) {
-    statusDetail = `Vigilancia · ${pending} en cola · ${pendingExposureEur.toLocaleString('es-ES')} € en revisión`;
+    statusDetail = `Vigilancia · ${pending} pendientes · ${pendingExposureEur.toLocaleString('es-ES')} € en revisión`;
   } else if (protectedCapital > 0) {
     statusDetail = `Blindado · ${blocked} bloqueos efectivos`;
   }
@@ -430,9 +510,6 @@ export function runQueryBenchmark(clientCount = 40, datasetSize = 15000) {
   };
 }
 
-/**
- * Sello criptográfico real SHA-256 mediante Web Crypto API
- */
 export async function computeSha256Hex(payloadString) {
   const data = new TextEncoder().encode(payloadString);
   if (typeof crypto !== 'undefined' && crypto.subtle) {
@@ -449,9 +526,6 @@ export async function computeSha256Hex(payloadString) {
   return (h >>> 0).toString(16).padStart(8, '0');
 }
 
-/**
- * Guardia real de Idempotencia + Anti-CSRF (previene doble cobro y Replay Attacks)
- */
 export function createIdempotencyGuard() {
   const processedKeys = new Map();
   let csrfToken =
@@ -489,7 +563,7 @@ export function createIdempotencyGuard() {
       return {
         status: 201,
         ok: true,
-        reason: `Transferencia de ${amount} € ejecutada una sola vez (clave registrada).`,
+        reason: `Orden de ${amount} € ejecutada una sola vez (clave sellada).`,
       };
     },
     reset() {
