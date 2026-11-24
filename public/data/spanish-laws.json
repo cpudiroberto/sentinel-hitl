@@ -1,7 +1,7 @@
 {
   "source": "API Datos Abiertos del BOE (boe.es)",
-  "syncedAt": "2026-11-24T21:25:22.335Z",
-  "liveVerifiedCount": 0,
+  "syncedAt": "2026-11-24T21:28:08.255Z",
+  "liveVerifiedCount": 4,
   "totalChapters": 5,
   "chapters": [
     {
@@ -14,12 +14,12 @@
       "summary": "Exige al menos dos factores independientes en pagos electrónicos y accesos sensibles, salvo operaciones de bajo riesgo verificadas mediante análisis transaccional en tiempo real (TRA).",
       "gap": "Reutilización de sesiones activas o tokens OAuth tras un cambio abrupto de geolocalización sin forzar re-autenticación.",
       "protocol": "Ante viaje imposible, dispositivo no reconocido o más de 2 fallos de clave, revocar la sesión, bloquear preventivamente y exigir 2FA fuera de banda.",
-      "officialTitle": "Servicios de Pago y Autenticación Reforzada (SCA)",
-      "lastConsolidated": "Compendio local vigente",
-      "publishedDate": "-",
-      "status": "Vigente",
+      "officialTitle": "Real Decreto-ley 19/2018, de 23 de noviembre, de servicios de pago y otras medidas urgentes en materia financiera.",
+      "lastConsolidated": "20/12/2025",
+      "publishedDate": "24/11/2018",
+      "status": "Vigente (BOE)",
       "boeUrl": "https://www.boe.es/buscar/act.php?id=BOE-A-2018-16036",
-      "liveFetched": false
+      "liveFetched": true
     },
     {
       "id": "SEPBLAC-PBC",
@@ -31,12 +31,12 @@
       "summary": "Obliga a aplicar medidas reforzadas de diligencia debida ante transferencias internacionales atípicas, jurisdicciones de riesgo, importes elevados o fraccionamiento sistemático.",
       "gap": "Pagos fraccionados en varias operaciones bajo el umbral de 3.000 € hacia proveedores recién creados o jurisdicciones no cooperantes.",
       "protocol": "Retener fondos preventivamente, solicitar factura o contrato justificativo y confirmar la orden telefónicamente con el apoderado.",
-      "officialTitle": "Prevención de Blanqueo de Capitales y Diligencia Reforzada",
-      "lastConsolidated": "Compendio local vigente",
-      "publishedDate": "-",
-      "status": "Vigente",
+      "officialTitle": "Ley 10/2010, de 28 de abril, de prevención del blanqueo de capitales y de la financiación del terrorismo.",
+      "lastConsolidated": "22/10/2026",
+      "publishedDate": "29/04/2010",
+      "status": "Vigente (BOE)",
       "boeUrl": "https://www.boe.es/buscar/act.php?id=BOE-A-2010-6737",
-      "liveFetched": false
+      "liveFetched": true
     },
     {
       "id": "RGPD-ART32",
@@ -48,12 +48,12 @@
       "summary": "Exige garantizar la confidencialidad, integridad y resiliencia de los sistemas financieros, conservando registros de auditoría inalterables ante accesos anómalos.",
       "gap": "Accesos administrativos desde redes Wi-Fi públicas o VPN comerciales sin huella de dispositivo registrada ni justificación de auditoría.",
       "protocol": "Validar identidad mediante código OTP, registrar justificación saneada en auditoría y escalar al DPO si se confirma acceso ilícito.",
-      "officialTitle": "Seguridad del Tratamiento y Trazabilidad de Accesos",
-      "lastConsolidated": "Compendio local vigente",
-      "publishedDate": "-",
-      "status": "Vigente",
+      "officialTitle": "Ley Orgánica 3/2018, de 5 de diciembre, de Protección de Datos Personales y garantía de los derechos digitales.",
+      "lastConsolidated": "08/10/2026",
+      "publishedDate": "06/12/2018",
+      "status": "Vigente (BOE)",
       "boeUrl": "https://www.boe.es/buscar/act.php?id=BOE-A-2018-16673",
-      "liveFetched": false
+      "liveFetched": true
     },
     {
       "id": "BDE-4-2017",
@@ -82,12 +82,12 @@
       "summary": "Impone medidas técnicas verificables contra intentos repetitivos de autenticación, integridad criptográfica de registros (SHA-256) y saneamiento de entradas.",
       "gap": "Endpoints de login o APIs internas sin limitación por ventana deslizante ni claves de idempotencia ante reenvíos.",
       "protocol": "Mantener bloqueo HTTP 429 activo, exigir tokens anti-CSRF y sellar criptográficamente los registros críticos de auditoría.",
-      "officialTitle": "Protección contra Fuerza Bruta, Integridad y Control de Acceso",
-      "lastConsolidated": "Compendio local vigente",
-      "publishedDate": "-",
-      "status": "Vigente",
+      "officialTitle": "Real Decreto 311/2022, de 3 de mayo, por el que se regula el Esquema Nacional de Seguridad.",
+      "lastConsolidated": "30/10/2026",
+      "publishedDate": "04/05/2022",
+      "status": "Vigente (BOE)",
       "boeUrl": "https://www.boe.es/buscar/act.php?id=BOE-A-2022-7191",
-      "liveFetched": false
+      "liveFetched": true
     }
   ]
 }

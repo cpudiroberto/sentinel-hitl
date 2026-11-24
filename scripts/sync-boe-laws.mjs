@@ -87,41 +87,52 @@ function formatBoeDate(raw) {
 }
 
 function extractXmlTag(xml, tag) {
-  const match = xml.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`, 'i'));
+  const match = xml.match(
+    new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`, 'i')
+  );
   return match ? match[1].trim() : null;
 }
 
 async function fetchBoeMetadata(boeId) {
-  const endpoints = [
-    `https://www.boe.es/datosabiertos/api/legislacion-consolidada/id/${boeId}/metadatos`,
-    `https://www.boe.es/datosabiertos/api/legislacion-consolidada/id/${boeId}`,
+  // La API oficial del BOE exige un unico MIME exacto en la cabecera Accept
+  const attempts = [
+    {
+      url: `https://www.boe.es/datosabiertos/api/legislacion-consolidada/id/${boeId}/metadatos`,
+      accept: 'application/json',
+    },
+    {
+      url: `https://www.boe.es/datosabiertos/api/legislacion-consolidada/id/${boeId}/metadatos`,
+      accept: 'application/xml',
+    },
+    {
+      url: `https://www.boe.es/datosabiertos/api/legislacion-consolidada/id/${boeId}`,
+      accept: 'application/xml',
+    },
   ];
 
   let lastReason = 'Sin respuesta';
 
-  for (const url of endpoints) {
+  for (const { url, accept } of attempts) {
     try {
       const res = await fetch(url, {
-        headers: {
-          Accept: 'application/json, application/xml;q=0.9',
-          'User-Agent': 'Mozilla/5.0 (compatible; Sentinel-HITL/1.0)',
-        },
+        headers: { Accept: accept },
         signal: AbortSignal.timeout(12000),
       });
 
+      const rawText = await res.text();
       if (!res.ok) {
-        lastReason = `HTTP ${res.status}`;
+        lastReason = `HTTP ${res.status} (${rawText.slice(0, 80).replace(/\s+/g, ' ')})`;
         continue;
       }
 
-      const rawText = await res.text();
       const trimmed = rawText.trim();
-
       if (trimmed.startsWith('{')) {
         const json = JSON.parse(trimmed);
         const meta =
           json?.data?.metadatos ||
-          (json?.data?.titulo || json?.data?.identificador ? json.data : null) ||
+          (json?.data?.titulo || json?.data?.identificador
+            ? json.data
+            : null) ||
           json?.metadatos ||
           null;
 
@@ -140,7 +151,7 @@ async function fetchBoeMetadata(boeId) {
             liveFetched: true,
           };
         }
-        lastReason = 'JSON sin bloque metadatos';
+        lastReason = 'JSON sin metadatos';
       } else if (trimmed.startsWith('<')) {
         const titulo = extractXmlTag(trimmed, 'titulo');
         if (titulo) {
@@ -163,9 +174,7 @@ async function fetchBoeMetadata(boeId) {
             liveFetched: true,
           };
         }
-        lastReason = 'XML sin etiqueta <titulo>';
-      } else {
-        lastReason = 'Formato no reconocido';
+        lastReason = 'XML sin <titulo>';
       }
     } catch (err) {
       lastReason = err?.message || 'Error de red';
