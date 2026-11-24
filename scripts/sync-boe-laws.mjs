@@ -86,30 +86,94 @@ function formatBoeDate(raw) {
   return raw;
 }
 
+function extractXmlTag(xml, tag) {
+  const match = xml.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`, 'i'));
+  return match ? match[1].trim() : null;
+}
+
 async function fetchBoeMetadata(boeId) {
-  const url = `https://www.boe.es/datosabiertos/api/legislacion-consolidada/id/${boeId}`;
-  try {
-    const res = await fetch(url, {
-      headers: { Accept: 'application/json', 'User-Agent': 'Sentinel-HITL-Sync/1.0' },
-      signal: AbortSignal.timeout(12000),
-    });
-    if (!res.ok) return null;
-    const json = await res.json();
-    const meta = json?.data?.metadatos || json?.metadatos || null;
-    if (!meta) return null;
-    return {
-      officialTitle: meta.titulo || null,
-      lastConsolidated: formatBoeDate(meta.fecha_actualizacion),
-      publishedDate: formatBoeDate(meta.fecha_publicacion),
-      status: meta.vigencia_agotada === 'S' ? 'Derogada' : 'Vigente (BOE)',
-      boeUrl:
-        meta.url_html_consolidada ||
-        `https://www.boe.es/buscar/act.php?id=${boeId}`,
-      liveFetched: true,
-    };
-  } catch {
-    return null;
+  const endpoints = [
+    `https://www.boe.es/datosabiertos/api/legislacion-consolidada/id/${boeId}/metadatos`,
+    `https://www.boe.es/datosabiertos/api/legislacion-consolidada/id/${boeId}`,
+  ];
+
+  let lastReason = 'Sin respuesta';
+
+  for (const url of endpoints) {
+    try {
+      const res = await fetch(url, {
+        headers: {
+          Accept: 'application/json, application/xml;q=0.9',
+          'User-Agent': 'Mozilla/5.0 (compatible; Sentinel-HITL/1.0)',
+        },
+        signal: AbortSignal.timeout(12000),
+      });
+
+      if (!res.ok) {
+        lastReason = `HTTP ${res.status}`;
+        continue;
+      }
+
+      const rawText = await res.text();
+      const trimmed = rawText.trim();
+
+      if (trimmed.startsWith('{')) {
+        const json = JSON.parse(trimmed);
+        const meta =
+          json?.data?.metadatos ||
+          (json?.data?.titulo || json?.data?.identificador ? json.data : null) ||
+          json?.metadatos ||
+          null;
+
+        if (meta) {
+          return {
+            officialTitle: meta.titulo || null,
+            lastConsolidated: formatBoeDate(
+              meta.fecha_actualizacion || meta.fecha_vigencia
+            ),
+            publishedDate: formatBoeDate(meta.fecha_publicacion),
+            status:
+              meta.vigencia_agotada === 'S' ? 'Derogada' : 'Vigente (BOE)',
+            boeUrl:
+              meta.url_html_consolidada ||
+              `https://www.boe.es/buscar/act.php?id=${boeId}`,
+            liveFetched: true,
+          };
+        }
+        lastReason = 'JSON sin bloque metadatos';
+      } else if (trimmed.startsWith('<')) {
+        const titulo = extractXmlTag(trimmed, 'titulo');
+        if (titulo) {
+          return {
+            officialTitle: titulo,
+            lastConsolidated: formatBoeDate(
+              extractXmlTag(trimmed, 'fecha_actualizacion') ||
+                extractXmlTag(trimmed, 'fecha_vigencia')
+            ),
+            publishedDate: formatBoeDate(
+              extractXmlTag(trimmed, 'fecha_publicacion')
+            ),
+            status:
+              extractXmlTag(trimmed, 'vigencia_agotada') === 'S'
+                ? 'Derogada'
+                : 'Vigente (BOE)',
+            boeUrl:
+              extractXmlTag(trimmed, 'url_html_consolidada') ||
+              `https://www.boe.es/buscar/act.php?id=${boeId}`,
+            liveFetched: true,
+          };
+        }
+        lastReason = 'XML sin etiqueta <titulo>';
+      } else {
+        lastReason = 'Formato no reconocido';
+      }
+    } catch (err) {
+      lastReason = err?.message || 'Error de red';
+    }
   }
+
+  console.warn(`[BOE Sync] ${boeId} no verificado en vivo (${lastReason})`);
+  return null;
 }
 
 async function main() {
@@ -118,12 +182,17 @@ async function main() {
 
   for (const item of CURATED_CHAPTERS) {
     const boeMeta = await fetchBoeMetadata(item.boeId);
-    if (boeMeta?.liveFetched) liveCount += 1;
+    if (boeMeta?.liveFetched) {
+      liveCount += 1;
+      console.info(
+        `[BOE Sync] OK ${item.boeId} -> actualizado ${boeMeta.lastConsolidated}`
+      );
+    }
 
     results.push({
       ...item,
       officialTitle: boeMeta?.officialTitle || item.title,
-      lastConsolidated: boeMeta?.lastConsolidated || 'Consultado en BOE',
+      lastConsolidated: boeMeta?.lastConsolidated || 'Compendio local vigente',
       publishedDate: boeMeta?.publishedDate || '-',
       status: boeMeta?.status || 'Vigente',
       boeUrl:

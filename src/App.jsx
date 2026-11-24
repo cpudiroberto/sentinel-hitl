@@ -38,13 +38,21 @@ const FALLBACK_CHAPTERS = SPANISH_LEGAL_COMPENDIUM.map((item, idx) => ({
   ...item,
   chapter: `Cap. ${['I', 'II', 'III', 'IV', 'V'][idx] || idx + 1}`,
   boeId:
-    ['BOE-A-2018-16036', 'BOE-A-2010-6737', 'BOE-A-2018-16673', 'BOE-A-2017-14334', 'BOE-A-2022-7191'][
-      idx
-    ] || 'BOE',
+    [
+      'BOE-A-2018-16036',
+      'BOE-A-2010-6737',
+      'BOE-A-2018-16673',
+      'BOE-A-2017-14334',
+      'BOE-A-2022-7191',
+    ][idx] || 'BOE',
   boeUrl: `https://www.boe.es/buscar/act.php?id=${
-    ['BOE-A-2018-16036', 'BOE-A-2010-6737', 'BOE-A-2018-16673', 'BOE-A-2017-14334', 'BOE-A-2022-7191'][
-      idx
-    ] || ''
+    [
+      'BOE-A-2018-16036',
+      'BOE-A-2010-6737',
+      'BOE-A-2018-16673',
+      'BOE-A-2017-14334',
+      'BOE-A-2022-7191',
+    ][idx] || ''
   }`,
   lastConsolidated: item.updated,
   status: 'Vigente',
@@ -56,7 +64,7 @@ export default function App() {
   const [entered, setEntered] = useState(initial.entered);
   const [activeTab, setActiveTab] = useState(initial.activeTab);
   const [aiEnabled, setAiEnabled] = useState(initial.aiEnabled);
-  const [autoStream, setAutoStream] = useState(initial.autoStream);
+  const [autoStream, setAutoStream] = useState(true);
   const [model, setModel] = useState(initial.model);
   const [events, setEvents] = useState(initial.events);
   const [totals, setTotals] = useState(initial.totals);
@@ -96,11 +104,10 @@ export default function App() {
   });
 
   const [aiLogs, setAiLogs] = useState([
-    'Biblioteca normativa España lista: PSD2, Ley 10/2010 (SEPBLAC), RGPD y Banco de España.',
-    'Regla activa: la IA solo aprueba automáticamente casos 100 % seguros; el resto pasa a ti.',
+    'Sistema listo: la IA aprueba automáticamente solo casos 100 % seguros; todo lo demás pasa a tu cola.',
+    'Biblioteca normativa española disponible por capítulos (PSD2, SEPBLAC, RGPD, Banco de España y ENS).',
   ]);
 
-  // Carga en vivo del compendio actualizado por GitHub Actions desde la API del BOE
   const fetchLiveLaws = useCallback(async () => {
     setLawData((prev) => ({ ...prev, isSyncing: true }));
     try {
@@ -119,7 +126,7 @@ export default function App() {
         return;
       }
     } catch {
-      // Mantiene compendio local de respaldo si está offline
+      // Mantiene compendio local de respaldo
     }
     setLawData((prev) => ({ ...prev, isSyncing: false }));
   }, []);
@@ -128,7 +135,6 @@ export default function App() {
     fetchLiveLaws();
   }, [fetchLiveLaws]);
 
-  // Detección real de conectividad (Verde = activo, Naranja = en pausa, Rojo = sin conexión)
   useEffect(() => {
     const onOnline = () => setIsOnline(true);
     const onOffline = () => setIsOnline(false);
@@ -242,7 +248,6 @@ export default function App() {
     [events]
   );
 
-  // Métricas combinadas: pendientes en vivo + acumulados que NUNCA bajan
   const metrics = useMemo(() => {
     const pending = pendingEvents.length;
     const criticalPending = pendingEvents.filter(
@@ -259,7 +264,7 @@ export default function App() {
 
     let statusDetail = 'Óptimo · Sin riesgo activo';
     if (!aiEnabled && pending > 0) {
-      statusDetail = `Manual (IA OFF) · ${pending} pendientes (${pendingExposureEur.toLocaleString('es-ES')} €)`;
+      statusDetail = `Manual (IA en pausa) · ${pending} en cola (${pendingExposureEur.toLocaleString('es-ES')} €)`;
     } else if (criticalPending >= 2 || pending >= 4) {
       statusDetail = `Crítico · ${criticalPending} críticos · ${pendingExposureEur.toLocaleString('es-ES')} € en riesgo`;
     } else if (pending > 0) {
@@ -320,9 +325,10 @@ export default function App() {
         );
 
         if (!aiEnabled) {
+          // IA en pausa: el 100 % de las operaciones nuevas van directas al agente humano
           setEvents((prev) => [evaluated, ...prev].slice(0, 48));
           appendAiLog(
-            `[${evaluated.timestamp}] IA APAGADA: ${evaluated.id} «${evaluated.title}» enviado directo a tus pendientes.`
+            `[${evaluated.timestamp}] Modo manual (IA en pausa): ${evaluated.id} «${evaluated.title}» derivado directamente a tu cola.`
           );
           playTone(evaluated.risk.score >= 75 ? 'criticalCalm' : 'alert');
         } else if (evaluated.risk.score === 0 && !forceRisky) {
@@ -334,13 +340,13 @@ export default function App() {
           setEvents((prev) => [autoSafeEvt, ...prev].slice(0, 48));
           setTotals((t) => ({ ...t, aiApproved: t.aiApproved + 1 }));
           appendAiLog(
-            `[${evaluated.timestamp}] IA aprobó al 100 % de seguridad ${autoSafeEvt.id} «${autoSafeEvt.title}».`
+            `[${evaluated.timestamp}] IA aprobó al 100 % de seguridad: ${autoSafeEvt.id} «${autoSafeEvt.title}».`
           );
           playTone('autoOk');
         } else {
           setEvents((prev) => [evaluated, ...prev].slice(0, 48));
           appendAiLog(
-            `[${evaluated.timestamp}] IA escaló ${evaluated.id} (${evaluated.risk.score} % riesgo) · ${evaluated.risk.legal.law}.`
+            `[${evaluated.timestamp}] Nuevo caso para tu revisión: ${evaluated.id} (${evaluated.risk.score} % riesgo) · ${evaluated.risk.legal.law}.`
           );
           playTone(evaluated.risk.score >= 75 ? 'criticalCalm' : 'alert');
         }
@@ -350,13 +356,13 @@ export default function App() {
     [aiEnabled, model, appendAiLog]
   );
 
-  // Flujo continuo en vivo (sigue entrando con IA ON u OFF si hay conexión y no está en pausa)
+  // Flujo continuo: aunque pauses la IA (escudo o IA: OFF), los casos SIGUEN entrando a tu cola
   useEffect(() => {
     if (!entered || !autoStream || !isOnline || tourStep !== null) {
       return undefined;
     }
     const interval = setInterval(() => {
-      if (pendingEvents.length >= 24) return;
+      if (pendingEvents.length >= 25) return;
       processIncomingOperation(false);
     }, 4200);
     return () => clearInterval(interval);
@@ -368,6 +374,19 @@ export default function App() {
     pendingEvents.length,
     processIncomingOperation,
   ]);
+
+  const handleToggleAi = () => {
+    playTone('click');
+    setAiEnabled((prev) => {
+      const next = !prev;
+      appendAiLog(
+        next
+          ? 'IA reactivada: los casos 100 % seguros vuelven a filtrarse automáticamente.'
+          : 'IA en pausa (modo manual): los casos siguen entrando y pasan el 100 % a tu cola.'
+      );
+      return next;
+    });
+  };
 
   const handleOpenModal = (evt) => {
     playTone('click');
@@ -392,7 +411,6 @@ export default function App() {
     const training = trainModelStep(model, selectedEvent, label, cleanNote);
     setModel(training.model);
 
-    // Actualización estrictamente coherente de contadores acumulativos (total nunca baja)
     setTotals((prev) => {
       const next = { ...prev };
       if (prevStatus === 'PENDING') {
@@ -438,7 +456,7 @@ export default function App() {
     );
 
     appendAiLog(
-      `Decisión registrada: ${newStatus === 'BLOCKED' ? 'Denegaste' : 'Aprobaste'} ${selectedEvent.id} (riesgo recalibrado: ${training.prevScore}% → ${training.newScore}%).`
+      `Decisión guardada: ${newStatus === 'BLOCKED' ? 'Denegaste' : 'Aprobaste'} ${selectedEvent.id} (riesgo recalibrado: ${training.prevScore} % → ${training.newScore} %).`
     );
     playTone(newStatus === 'BLOCKED' ? 'block' : 'approve');
     setSelectedEventId(null);
@@ -471,7 +489,7 @@ export default function App() {
     setNoteInput('');
     setAiLogs([
       'Sesión reiniciada con nuevos casos aleatorios.',
-      'Biblioteca normativa España sincronizada: PSD2, SEPBLAC, RGPD y Banco de España.',
+      'Biblioteca normativa española disponible por capítulos.',
     ]);
   };
 
@@ -480,23 +498,21 @@ export default function App() {
   const isDeckSpotlight = isSpot('kpis') || isSpot('topbar-actions');
   const activeAdvisoryEvent = pendingEvents[0] || events[0] || null;
 
-  // Semáforo operativo: Rojo = Sin conexión · Naranja = En pausa/espera · Verde = Activo
+  // Semáforo claro: Rojo = Sin conexión · Naranja = IA en pausa (manual) · Verde = IA activa
   const sentinelState = !isOnline
     ? 'offline'
-    : !autoStream
+    : !aiEnabled
       ? 'paused'
       : 'active';
-
-  const isAiOffline = sentinelState !== 'active' || !aiEnabled;
 
   const statusText =
     sentinelState === 'offline'
       ? 'SIN CONEXIÓN · MODO LOCAL'
       : sentinelState === 'paused'
-        ? 'EN PAUSA (pulsa el escudo)'
+        ? 'IA EN PAUSA · MODO 100 % MANUAL'
         : aiScanning
-          ? 'ANALIZANDO OPERACIÓN...'
-          : `ACTIVO · IA ${aiEnabled ? 'ENCENDIDA' : 'APAGADA (MODO MANUAL)'}`;
+          ? 'IA ANALIZANDO OPERACIÓN...'
+          : 'IA ACTIVA · FILTRADO EN VIVO';
 
   const showNotifications =
     !currentTour &&
@@ -574,10 +590,10 @@ export default function App() {
                 </article>
                 <article className="feature-box interactive-card">
                   <span className="step-num mono">02</span>
-                  <h3>6 Defensas Verificables (F12)</h3>
+                  <h3>Defensas sobre tus Datos</h3>
                   <p>
-                    Pon a prueba HTTP 429, Anti-XSS, SHA-256, Idempotencia
-                    Anti-CSRF y Diagnóstico de Seguridad en directo.
+                    Pon a prueba HTTP 429, Anti-XSS, SHA-256, Anti-CSRF y
+                    diagnóstico web sobre los casos reales de tu sesión.
                   </p>
                 </article>
                 <article className="feature-box interactive-card">
@@ -653,18 +669,15 @@ export default function App() {
             <div className="brand">
               <button
                 className={`shield-4d-btn state-${sentinelState}`}
-                onClick={() => {
-                  playTone('click');
-                  setAutoStream((s) => !s);
-                }}
+                onClick={handleToggleAi}
                 title={
-                  autoStream
-                    ? 'Pulsa el escudo para PAUSAR el tráfico en vivo'
-                    : 'Pulsa el escudo para REANUDAR el tráfico en vivo'
+                  aiEnabled
+                    ? 'Pulsa el escudo para PAUSAR la IA (los casos seguirán llegando a tu cola)'
+                    : 'Pulsa el escudo para REACTIVAR la IA'
                 }
-                aria-label="Pausar o reanudar Sentinel HITL"
+                aria-label="Activar o pausar la IA de Sentinel HITL"
               >
-                <SentinelBrandIcon size={36} paused={!autoStream} />
+                <SentinelBrandIcon size={36} paused={!aiEnabled} />
               </button>
               <div>
                 <h1>Sentinel HITL</h1>
@@ -690,11 +703,8 @@ export default function App() {
 
               <button
                 className={`btn-ghost-dark btn-ai-toggle ${aiEnabled ? 'is-on' : 'is-off'}`}
-                onClick={() => {
-                  playTone('click');
-                  setAiEnabled((v) => !v);
-                }}
-                title="Si apagas la IA, los casos siguen llegando y pasan todos a tus pendientes"
+                onClick={handleToggleAi}
+                title="Si apagas la IA, los casos siguen llegando y pasan el 100 % a tus pendientes"
               >
                 {aiEnabled ? 'IA: ON' : 'IA: OFF'}
               </button>
@@ -856,7 +866,7 @@ export default function App() {
                 setActiveTab('lab');
               }}
             >
-              2. Defensa y Rendimiento (6)
+              2. Defensa y Rendimiento
             </button>
             <button
               className={`tab-btn ${activeTab === 'quality' ? 'active' : ''}`}
@@ -879,113 +889,132 @@ export default function App() {
               <span className="section-eyebrow mono">
                 MÓDULO 01 · CENTRO DE OPERACIONES HITL
               </span>
-              <h2>Supervisión Antifraude y Biblioteca Normativa en Vivo</h2>
+              <h2>Supervisión Antifraude y Biblioteca Normativa</h2>
               <p>
-                La IA aprueba únicamente casos 100 % seguros (revisables a la
-                derecha) y te asiste con la legislación española en cada alerta.
+                La IA aprueba únicamente casos 100 % seguros (auditables a la
+                derecha) y te asesora con la normativa española en cada alerta.
               </p>
             </div>
 
             <div
               id="tour-ai-monitor"
-              className={`ai-monitor ${isAiOffline ? 'is-offline' : ''} ${
+              className={`ai-monitor ${sentinelState !== 'active' ? 'is-offline' : ''} ${
                 isSpot('ai-monitor') ? 'tour-spotlight' : ''
               }`}
             >
-              {!isAiOffline && (
+              {sentinelState === 'active' && (
                 <div className={`ai-scan-bar ${aiScanning ? 'fast' : ''}`} />
               )}
+
               <div className="lab-footer-row">
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.75rem',
-                    flexWrap: 'wrap',
-                  }}
-                >
+                <div>
                   <strong
                     style={{
-                      fontSize: '1.05rem',
-                      color: isAiOffline ? '#94a3b8' : '#7dd3fc',
+                      display: 'block',
+                      fontSize: '1.08rem',
+                      color: sentinelState === 'active' ? '#7dd3fc' : '#fcd34d',
                     }}
                   >
-                    Cerebro Sentinel AI · Biblioteca Normativa (BOE)
+                    Asistente Sentinel AI y Normativa Española (BOE)
                   </strong>
-                  {isAiOffline ? (
-                    <span className="monitor-status-text mono tone-warn">
-                      ●{' '}
-                      {sentinelState === 'offline'
-                        ? 'SIN CONEXIÓN'
-                        : sentinelState === 'paused'
-                          ? 'EN PAUSA · PULSA EL ESCUDO'
-                          : 'IA APAGADA · MODO MANUAL'}
-                    </span>
-                  ) : (
-                    <button
-                      className="legal-trigger-btn"
-                      onClick={() => handleOpenLegalModal('')}
-                    >
-                      Abrir biblioteca por capítulos ↗
-                    </button>
-                  )}
+                  <p className="ai-card-purpose">
+                    {sentinelState === 'paused'
+                      ? 'IA en pausa (modo 100 % manual): todas las operaciones nuevas llegan directamente a tu cola sin filtro automático.'
+                      : sentinelState === 'offline'
+                        ? 'Sin conexión a internet: puedes seguir revisando los casos ya cargados y consultar el compendio local.'
+                        : 'Consulta aquí la ley aplicable al caso más urgente antes de decidir y sigue en directo lo que procesa el sistema.'}
+                  </p>
                 </div>
 
-                <button
-                  className="btn-guide-cta"
-                  style={{ padding: '0.38rem 0.82rem', fontSize: '0.82rem' }}
-                  onClick={() => processIncomingOperation(true)}
-                  disabled={aiScanning}
-                >
-                  + Generar caso complejo
-                </button>
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  <button
+                    className="legal-trigger-btn"
+                    onClick={() => handleOpenLegalModal('')}
+                  >
+                    Abrir biblioteca (5 capítulos) ↗
+                  </button>
+                  <button
+                    className="btn-ghost-dark"
+                    style={{ padding: '0.38rem 0.72rem', fontSize: '0.78rem' }}
+                    onClick={() => {
+                      playTone('click');
+                      setAutoStream((s) => !s);
+                    }}
+                    title="Detiene o reanuda la llegada automática de nuevos casos de prueba"
+                  >
+                    {autoStream ? 'Tráfico: En vivo' : 'Tráfico: Detenido'}
+                  </button>
+                  <button
+                    className="btn-guide-cta"
+                    style={{ padding: '0.38rem 0.82rem', fontSize: '0.8rem' }}
+                    onClick={() => processIncomingOperation(true)}
+                    disabled={aiScanning}
+                  >
+                    + Generar caso
+                  </button>
+                </div>
               </div>
 
               <div className="legal-grid">
                 <div className="legal-box">
-                  <div className="lab-footer-row" style={{ marginBottom: '0.4rem' }}>
+                  <div className="lab-footer-row" style={{ marginBottom: '0.45rem' }}>
                     <span
                       className="mono"
-                      style={{ fontSize: '0.78rem', color: '#38bdf8' }}
+                      style={{ fontSize: '0.76rem', color: '#38bdf8', fontWeight: 700 }}
                     >
-                      NORMATIVA APLICABLE · {activeAdvisoryEvent?.id || 'EN ESPERA'}
+                      GUÍA LEGAL PARA TU CASO MÁS URGENTE
                     </span>
                     {activeAdvisoryEvent && (
-                      <button
-                        className="legal-trigger-btn"
-                        style={{ padding: '0.2rem 0.55rem', fontSize: '0.74rem' }}
-                        onClick={() =>
-                          handleOpenLegalModal(
-                            activeAdvisoryEvent.risk.legal?.law.split(' ')[0] || ''
-                          )
-                        }
-                      >
-                        Leer capítulo completo ↗
-                      </button>
+                      <div style={{ display: 'flex', gap: '0.4rem' }}>
+                        <button
+                          className="legal-trigger-btn"
+                          style={{ padding: '0.2rem 0.55rem', fontSize: '0.74rem' }}
+                          onClick={() => handleOpenModal(activeAdvisoryEvent)}
+                        >
+                          Revisar {activeAdvisoryEvent.id}
+                        </button>
+                        <button
+                          className="legal-trigger-btn"
+                          style={{ padding: '0.2rem 0.55rem', fontSize: '0.74rem' }}
+                          onClick={() =>
+                            handleOpenLegalModal(
+                              activeAdvisoryEvent.risk.legal?.law.split(' ')[0] || ''
+                            )
+                          }
+                        >
+                          Ver ley ↗
+                        </button>
+                      </div>
                     )}
                   </div>
                   {activeAdvisoryEvent ? (
                     <>
+                      <div className="ai-case-banner">
+                        <strong>{activeAdvisoryEvent.title}</strong> ·{' '}
+                        <span>{activeAdvisoryEvent.account}</span> (
+                        {activeAdvisoryEvent.risk.score} % riesgo)
+                      </div>
                       <strong
                         style={{
                           display: 'block',
-                          fontSize: '0.98rem',
+                          fontSize: '0.96rem',
                           marginBottom: '0.3rem',
+                          color: '#f8fafc',
                         }}
                       >
                         {activeAdvisoryEvent.risk.legal?.law}
                       </strong>
-                      <div style={{ color: '#cbd5e1', marginBottom: '0.35rem' }}>
-                        <strong>Vacío / Riesgo:</strong>{' '}
+                      <div style={{ color: '#cbd5e1', marginBottom: '0.3rem', fontSize: '0.86rem' }}>
+                        <strong>Riesgo / Vacío legal:</strong>{' '}
                         {activeAdvisoryEvent.risk.legal?.gap}
                       </div>
-                      <div style={{ color: '#6ee7b7' }}>
-                        <strong>Guía para el agente:</strong>{' '}
+                      <div style={{ color: '#6ee7b7', fontSize: '0.86rem' }}>
+                        <strong>Qué hacer ahora:</strong>{' '}
                         {activeAdvisoryEvent.risk.legal?.guidance}
                       </div>
                     </>
                   ) : (
-                    <span>Sin casos pendientes de asesoría.</span>
+                    <span>Sin casos pendientes de asesoría en este momento.</span>
                   )}
                 </div>
 
@@ -993,13 +1022,24 @@ export default function App() {
                   <div
                     className="mono"
                     style={{
-                      fontSize: '0.78rem',
+                      fontSize: '0.76rem',
                       color: '#94a3b8',
+                      fontWeight: 700,
                       marginBottom: '0.45rem',
                     }}
                   >
-                    FEEDBACK EN VIVO
+                    ACTIVIDAD RECIENTE DEL SISTEMA
                   </div>
+                  <p
+                    style={{
+                      margin: '0 0 0.55rem',
+                      fontSize: '0.8rem',
+                      color: '#94a3b8',
+                    }}
+                  >
+                    Resumen en tiempo real de los casos filtrados por la IA y
+                    las decisiones que vas registrando:
+                  </p>
                   <ul className="ai-log-list">
                     {aiLogs.map((log, idx) => (
                       <li key={`${idx}-${log}`}>
@@ -1120,7 +1160,9 @@ export default function App() {
                           color: 'var(--text-muted)',
                         }}
                       >
-                        Aún no hay casos 100 % seguros aprobados por la IA.
+                        {aiEnabled
+                          ? 'Aún no hay casos 100 % seguros aprobados por la IA.'
+                          : 'IA en pausa: todos los casos nuevos pasan a tu cola izquierda.'}
                       </p>
                     </div>
                   ) : (
@@ -1163,7 +1205,11 @@ export default function App() {
         )}
 
         {activeTab === 'lab' && (
-          <DefenseLab isSpotlight={isSpot('lab-grid')} />
+          <DefenseLab
+            isSpotlight={isSpot('lab-grid')}
+            events={events}
+            metrics={metrics}
+          />
         )}
 
         {activeTab === 'quality' && (

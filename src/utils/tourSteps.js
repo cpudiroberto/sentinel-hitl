@@ -3,25 +3,25 @@ export const TOUR_STEPS = [
     id: 'kpis',
     tab: 'console',
     title: 'Marcadores Clave en Vivo (KPIs)',
-    body: 'Aquí supervisas los 4 indicadores esenciales: Tus Casos Pendientes, Aprobados por\u00A0IA (solo 100\u00A0% seguros), Resueltos en Total y Capital Protegido con semáforo de exposición.',
+    body: 'Aquí supervisas los 4 indicadores principales: Tus Casos Pendientes, Aprobados por\u00A0IA (solo 100\u00A0% seguros), Resueltos en Total (acumulado que nunca baja) y Capital Protegido.',
   },
   {
     id: 'ai-monitor',
     tab: 'console',
-    title: 'Cerebro Sentinel AI y Biblioteca Normativa',
-    body: 'Ofrece feedback en vivo y cruza cada caso con la legislación bancaria española sincronizada desde el BOE. Pulsa en «Abrir biblioteca» para navegar por capítulos y copiar disposiciones.',
+    title: 'Asistente Sentinel AI y Biblioteca Legal',
+    body: 'Te indica qué ley española aplica al caso más urgente antes de decidir (con acceso directo para revisarlo) y registra en lenguaje claro qué hace el sistema. Pulsa «Abrir biblioteca» para leer por capítulos.',
   },
   {
     id: 'event-queue',
     tab: 'console',
     title: 'Doble Columna: Control Humano y Verificación',
-    body: 'A la izquierda resuelves tus casos pendientes (con agrupación automática por cuenta). A la derecha auditas las tarjetas contraídas de casos aprobados al 100\u00A0% por\u00A0la\u00A0IA.',
+    body: 'A la izquierda resuelves tus casos pendientes (agrupados automáticamente si comparten cuenta). A la derecha auditas las tarjetas contraídas de casos aprobados al 100\u00A0% por\u00A0la\u00A0IA.',
   },
   {
     id: 'lab-grid',
     tab: 'lab',
-    title: 'Laboratorio: 6 Pruebas Verificables en Consola F12',
-    body: 'Pon a prueba en directo el Escudo HTTP\u00A0429, la agregación real en RAM (hasta 30.000 operaciones), el filtro Anti-XSS, la firma SHA-256, el control Anti-CSRF y el diagnóstico de seguridad del navegador.',
+    title: 'Defensa y Rendimiento sobre tus Datos Reales',
+    body: 'Pon a prueba en directo los mecanismos internos de Sentinel usando los casos, cuentas e importes reales de tu sesión actual: bloqueo HTTP\u00A0429, velocidad en RAM, Anti-XSS, sello SHA-256, anti-doble cobro y diagnóstico del navegador.',
   },
   {
     id: 'quality-author',
@@ -32,7 +32,7 @@ export const TOUR_STEPS = [
   {
     id: 'topbar-actions',
     tab: 'quality',
-    title: 'Escudo 4D, Semáforo de Estado y Botonera',
-    body: 'El indicador del escudo muestra verde (activo), naranja (en pausa) o rojo (sin conexión). Pulsa el escudo para pausar, usa IA: ON/OFF para modo manual y «Exportar ▾» para descargar informes.',
+    title: 'Escudo 4D, Semáforo de Estado y Exportación',
+    body: 'Verde = IA activa; Naranja = IA en pausa (los casos siguen llegando directos a tu cola); Rojo = sin conexión. Pulsa el escudo o «IA: ON/OFF» para cambiar de modo y «Exportar ▾» para descargar tus informes.',
   },
 ];
