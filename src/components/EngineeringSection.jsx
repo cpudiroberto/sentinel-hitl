@@ -5,15 +5,13 @@ import {
 } from '../utils/exporters';
 import { playTone } from '../utils/audioEngine';
 
-const STACK_BADGES = [
-  'React 19',
-  'Vite 6',
-  'Vitest TDD (6/6)',
-  'ESLint 0 Warnings',
-  'Web Crypto SHA-256',
-  'Web Audio API',
-  'Docker + Nginx',
-  'GitHub Actions CI/CD',
+const TECH_SPECS = [
+  { label: 'Interfaz y Build', value: 'React 19 · Vite 6 · CSS Grid' },
+  { label: 'Calidad y Pruebas', value: 'Vitest TDD (6/6) · ESLint 0 warnings' },
+  { label: 'Criptografía y Audio', value: 'Web Crypto SHA-256 · Web Audio API' },
+  { label: 'Sincronización Legal', value: 'API Datos Abiertos BOE + Cron diario' },
+  { label: 'Infraestructura', value: 'Docker Nginx · GitHub Actions Pages' },
+  { label: 'Persistencia Segura', value: 'localStorage validado · CSV Guard' },
 ];
 
 export default function EngineeringSection({ isSpotlight, metrics, model }) {
@@ -25,7 +23,7 @@ export default function EngineeringSection({ isSpotlight, metrics, model }) {
         </span>
         <h2>Ingeniería Aplicada y Autoría</h2>
         <p>
-          Alcance real de la arquitectura, decisiones técnicas, dossier completo
+          Alcance real de la arquitectura, ficha técnica detallada, dossier
           descargable para entrevistas y perfiles profesionales.
         </p>
       </div>
@@ -35,80 +33,68 @@ export default function EngineeringSection({ isSpotlight, metrics, model }) {
         className={`lab-grid ${isSpotlight ? 'tour-spotlight' : ''}`}
       >
         <article className="card interactive-card">
-          <span className="badge badge-ok">Arquitectura Modular Verificada</span>
-          <h3 className="lab-card-title">
+          <div className="editorial-kicker mono">ARQUITECTURA MODULAR VERIFICADA</div>
+          <h3 className="editorial-card-heading">
             Decisiones técnicas en Sentinel HITL
           </h3>
-          <p
-            style={{
-              margin: '0 0 0.85rem',
-              fontSize: '0.9rem',
-              color: 'var(--text-muted)',
-            }}
-          >
-            Aplicación 100 % en cliente (<em>serverless</em> en GitHub Pages)
-            estructurada por responsabilidades (<code>engine/</code>,{' '}
-            <code>components/</code>, <code>utils/</code>) sin simulaciones
-            vacías:
+          <p className="editorial-lead">
+            Aplicación ejecutada 100 % en cliente (<em>serverless</em> en GitHub
+            Pages) con actualización diaria automatizada desde el BOE mediante
+            GitHub Actions y separación estricta por módulos (
+            <code>engine/</code>, <code>components/</code>, <code>utils/</code>,{' '}
+            <code>scripts/</code>):
           </p>
 
           <ul className="engineering-list">
             <li>
               <strong>ML Online con Regularización L2:</strong> Regresión
               Logística con tasa sutil (<code>lr=0.12</code>), aprobación
-              autónoma restringida al 100 % segura (auditable) y compendio
-              normativo español.
+              autónoma limitada al 100 % seguro y biblioteca normativa española.
             </li>
             <li>
-              <strong>Seguridad Estándar y 6 Labs F12:</strong> CSP restrictiva,
-              Referrer-Policy, Anti-XSS, CSV Formula Guard, Web Crypto SHA-256,
-              Rate Limiter HTTP 429 e Idempotencia Anti-CSRF.
+              <strong>Defensa Verificable en F12:</strong> CSP restrictiva,
+              Anti-XSS, CSV Formula Guard, Web Crypto SHA-256, Rate Limiter
+              HTTP 429 e Idempotencia Anti-CSRF.
             </li>
             <li>
-              <strong>Rendimiento y Resiliencia:</strong> Agregación real de
-              hasta 30.000 transacciones en RAM, correlación de incidentes por
-              cuenta y recuperación segura ante datos corruptos en{' '}
-              <code>localStorage</code>.
+              <strong>Rendimiento y Consistencia:</strong> Agregación real de
+              hasta 30.000 operaciones en RAM, correlación de alertas por cuenta
+              y contadores acumulativos persistentes.
             </li>
           </ul>
 
-          <div className="stack-chips mono">
-            {STACK_BADGES.map((tag) => (
-              <span key={tag} className="stack-chip">
-                {tag}
-              </span>
+          <div className="spec-ledger">
+            {TECH_SPECS.map((item) => (
+              <div key={item.label} className="spec-cell">
+                <span className="spec-key">{item.label}</span>
+                <strong className="spec-val mono">{item.value}</strong>
+              </div>
             ))}
           </div>
         </article>
 
         <article className="card interactive-card author-card">
           <div>
-            <span className="pill">Autor del proyecto</span>
-            <h3 style={{ margin: '0.7rem 0 0.4rem', fontSize: '1.32rem' }}>
+            <div className="editorial-kicker mono">AUTOR DEL PROYECTO</div>
+            <h3 className="editorial-card-heading">
               Roberto Di Giovanni Igartua
             </h3>
-            <p
-              style={{
-                margin: '0 0 1.15rem',
-                fontSize: '0.94rem',
-                color: 'var(--text-muted)',
-              }}
-            >
+            <p className="editorial-lead">
               Desarrollador de Software (React · FastAPI · SQL) enfocado en
               seguridad de aplicaciones, interfaces ergonómicas, sistemas con IA
               supervisada (HITL) y calidad verificable mediante TDD.
             </p>
 
             <div className="dossier-box">
-              <strong style={{ display: 'block', marginBottom: '0.25rem' }}>
+              <strong style={{ display: 'block', marginBottom: '0.3rem' }}>
                 Dossier Técnico Completo del Proyecto
               </strong>
-              <span style={{ fontSize: '0.84rem', color: 'var(--text-muted)' }}>
-                Incluye arquitectura modular, matriz de seguridad verificable,
-                instantánea de tu sesión actual y botón integrado para guardar en
-                PDF.
+              <span style={{ fontSize: '0.86rem', color: 'var(--text-muted)' }}>
+                Documento estructurado con arquitectura modular, matriz de
+                seguridad verificable, instantánea de tu sesión actual y botón
+                para imprimir o guardar en PDF.
               </span>
-              <div style={{ marginTop: '0.85rem' }}>
+              <div style={{ marginTop: '0.9rem' }}>
                 <button
                   className="btn-primary"
                   onClick={() => {
@@ -122,16 +108,7 @@ export default function EngineeringSection({ isSpotlight, metrics, model }) {
             </div>
           </div>
 
-          <div
-            style={{
-              display: 'flex',
-              gap: '0.7rem',
-              flexWrap: 'wrap',
-              marginTop: '1.25rem',
-              paddingTop: '1rem',
-              borderTop: '1px solid var(--border)',
-            }}
-          >
+          <div className="author-links-bar">
             <a
               href={LINKEDIN_URL}
               target="_blank"

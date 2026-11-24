@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  computeDashboardMetrics,
+  SPANISH_LEGAL_COMPENDIUM,
   evaluateRiskEvent,
   sanitizeNote,
   trainModelStep,
@@ -21,7 +21,7 @@ import { exportSessionData } from './utils/exporters';
 import { TOUR_STEPS } from './utils/tourSteps';
 import {
   BackgroundCrystalWaves,
-  EventBadges,
+  CaseTelemetryHeader,
   SentinelBrandIcon,
 } from './components/BrandAssets';
 import DefenseLab from './components/DefenseLab';
@@ -34,6 +34,22 @@ import {
 
 const NOTIF_SNOOZE_MS = 5 * 60 * 1000;
 
+const FALLBACK_CHAPTERS = SPANISH_LEGAL_COMPENDIUM.map((item, idx) => ({
+  ...item,
+  chapter: `Cap. ${['I', 'II', 'III', 'IV', 'V'][idx] || idx + 1}`,
+  boeId:
+    ['BOE-A-2018-16036', 'BOE-A-2010-6737', 'BOE-A-2018-16673', 'BOE-A-2017-14334', 'BOE-A-2022-7191'][
+      idx
+    ] || 'BOE',
+  boeUrl: `https://www.boe.es/buscar/act.php?id=${
+    ['BOE-A-2018-16036', 'BOE-A-2010-6737', 'BOE-A-2018-16673', 'BOE-A-2017-14334', 'BOE-A-2022-7191'][
+      idx
+    ] || ''
+  }`,
+  lastConsolidated: item.updated,
+  status: 'Vigente',
+}));
+
 export default function App() {
   const initial = useMemo(() => loadSession(), []);
 
@@ -43,7 +59,17 @@ export default function App() {
   const [autoStream, setAutoStream] = useState(initial.autoStream);
   const [model, setModel] = useState(initial.model);
   const [events, setEvents] = useState(initial.events);
+  const [totals, setTotals] = useState(initial.totals);
   const seqRef = useRef(initial.seq || 9100);
+
+  const [isOnline, setIsOnline] = useState(() =>
+    typeof navigator !== 'undefined' ? navigator.onLine : true
+  );
+  const [lawData, setLawData] = useState({
+    chapters: FALLBACK_CHAPTERS,
+    syncedAt: null,
+    isSyncing: false,
+  });
 
   const [theme, setTheme] = useState(() => {
     try {
@@ -70,18 +96,56 @@ export default function App() {
   });
 
   const [aiLogs, setAiLogs] = useState([
-    'Compendio normativo España listo: PSD2, Ley 10/2010 (SEPBLAC), RGPD y Banco de España.',
+    'Biblioteca normativa España lista: PSD2, Ley 10/2010 (SEPBLAC), RGPD y Banco de España.',
     'Regla activa: la IA solo aprueba automáticamente casos 100 % seguros; el resto pasa a ti.',
   ]);
 
-  // Desbloqueo seguro de audio al primer gesto
+  // Carga en vivo del compendio actualizado por GitHub Actions desde la API del BOE
+  const fetchLiveLaws = useCallback(async () => {
+    setLawData((prev) => ({ ...prev, isSyncing: true }));
+    try {
+      const base = import.meta.env.BASE_URL || '/';
+      const res = await fetch(`${base}data/spanish-laws.json?t=${Date.now()}`, {
+        cache: 'no-store',
+      });
+      if (!res.ok) throw new Error('Sin feed remoto');
+      const json = await res.json();
+      if (Array.isArray(json.chapters) && json.chapters.length > 0) {
+        setLawData({
+          chapters: json.chapters,
+          syncedAt: json.syncedAt || null,
+          isSyncing: false,
+        });
+        return;
+      }
+    } catch {
+      // Mantiene compendio local de respaldo si está offline
+    }
+    setLawData((prev) => ({ ...prev, isSyncing: false }));
+  }, []);
+
+  useEffect(() => {
+    fetchLiveLaws();
+  }, [fetchLiveLaws]);
+
+  // Detección real de conectividad (Verde = activo, Naranja = en pausa, Rojo = sin conexión)
+  useEffect(() => {
+    const onOnline = () => setIsOnline(true);
+    const onOffline = () => setIsOnline(false);
+    window.addEventListener('online', onOnline);
+    window.addEventListener('offline', onOffline);
+    return () => {
+      window.removeEventListener('online', onOnline);
+      window.removeEventListener('offline', onOffline);
+    };
+  }, []);
+
   useEffect(() => initAudioUnlock(), []);
 
   useEffect(() => {
     setAudioEnabled(soundEnabled);
   }, [soundEnabled]);
 
-  // Persistencia automática de sesión
   useEffect(() => {
     try {
       localStorage.setItem(
@@ -94,12 +158,13 @@ export default function App() {
           seq: seqRef.current,
           model,
           events,
+          totals,
         })
       );
     } catch {
-      // Ignorar si almacenamiento está restringido
+      // Ignorar
     }
-  }, [entered, activeTab, aiEnabled, autoStream, model, events]);
+  }, [entered, activeTab, aiEnabled, autoStream, model, events, totals]);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
@@ -110,7 +175,6 @@ export default function App() {
     }
   }, [theme]);
 
-  // Cerrar desplegable Exportar al pulsar fuera
   useEffect(() => {
     if (!exportOpen) return undefined;
     const handleOutside = (e) => {
@@ -122,7 +186,6 @@ export default function App() {
     return () => document.removeEventListener('mousedown', handleOutside);
   }, [exportOpen]);
 
-  // Recordatorio de notificación tras 5 minutos
   useEffect(() => {
     if (!notifSnoozedUntil) return undefined;
     const wait = Math.max(0, notifSnoozedUntil - Date.now());
@@ -130,7 +193,6 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [notifSnoozedUntil]);
 
-  // Cierre de modales con Escape
   useEffect(() => {
     const onKey = (e) => {
       if (e.key === 'Escape') {
@@ -146,7 +208,6 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKey);
   }, [legalModalState.open, selectedEventId]);
 
-  // Sincronización de pestaña y posicionamiento sin solapar durante el tutorial
   useEffect(() => {
     if (tourStep === null) return undefined;
     const step = TOUR_STEPS[tourStep];
@@ -172,10 +233,6 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [tourStep]);
 
-  const metrics = useMemo(
-    () => computeDashboardMetrics(events, aiEnabled),
-    [events, aiEnabled]
-  );
   const pendingEvents = useMemo(
     () => events.filter((e) => e.status === 'PENDING'),
     [events]
@@ -184,6 +241,46 @@ export default function App() {
     () => events.filter((e) => e.status === 'AUTO_APPROVED'),
     [events]
   );
+
+  // Métricas combinadas: pendientes en vivo + acumulados que NUNCA bajan
+  const metrics = useMemo(() => {
+    const pending = pendingEvents.length;
+    const criticalPending = pendingEvents.filter(
+      (e) => (e.risk?.score || 0) >= 75
+    ).length;
+    const pendingExposureEur = pendingEvents.reduce(
+      (sum, e) => sum + (Number(e.amount) || 0),
+      0
+    );
+    const humanResolved = totals.humanApproved + totals.humanBlocked;
+    const totalResolved = totals.aiApproved + humanResolved;
+    const threatLevel =
+      pending >= 3 ? 'ELEVADO' : pending >= 1 ? 'VIGILANCIA' : 'CONTROLADO';
+
+    let statusDetail = 'Óptimo · Sin riesgo activo';
+    if (!aiEnabled && pending > 0) {
+      statusDetail = `Manual (IA OFF) · ${pending} pendientes (${pendingExposureEur.toLocaleString('es-ES')} €)`;
+    } else if (criticalPending >= 2 || pending >= 4) {
+      statusDetail = `Crítico · ${criticalPending} críticos · ${pendingExposureEur.toLocaleString('es-ES')} € en riesgo`;
+    } else if (pending > 0) {
+      statusDetail = `Vigilancia · ${pending} en cola · ${pendingExposureEur.toLocaleString('es-ES')} € en revisión`;
+    } else if (totals.protectedCapital > 0) {
+      statusDetail = `Blindado · ${totals.humanBlocked} bloqueos efectivos`;
+    }
+
+    return {
+      pending,
+      criticalPending,
+      pendingExposureEur,
+      aiApproved: totals.aiApproved,
+      humanResolved,
+      blocked: totals.humanBlocked,
+      totalResolved,
+      protectedCapital: totals.protectedCapital,
+      threatLevel,
+      statusDetail,
+    };
+  }, [pendingEvents, totals, aiEnabled]);
 
   const correlatedPending = useMemo(() => {
     const byAccount = new Map();
@@ -223,7 +320,7 @@ export default function App() {
         );
 
         if (!aiEnabled) {
-          setEvents((prev) => [evaluated, ...prev].slice(0, 36));
+          setEvents((prev) => [evaluated, ...prev].slice(0, 48));
           appendAiLog(
             `[${evaluated.timestamp}] IA APAGADA: ${evaluated.id} «${evaluated.title}» enviado directo a tus pendientes.`
           );
@@ -232,15 +329,16 @@ export default function App() {
           const autoSafeEvt = {
             ...evaluated,
             status: 'AUTO_APPROVED',
-            note: 'Aprobada por IA (100% segura). Verificación humana disponible.',
+            note: 'Aprobado por IA (100 % seguro). Verificación humana disponible.',
           };
-          setEvents((prev) => [autoSafeEvt, ...prev].slice(0, 36));
+          setEvents((prev) => [autoSafeEvt, ...prev].slice(0, 48));
+          setTotals((t) => ({ ...t, aiApproved: t.aiApproved + 1 }));
           appendAiLog(
             `[${evaluated.timestamp}] IA aprobó al 100 % de seguridad ${autoSafeEvt.id} «${autoSafeEvt.title}».`
           );
           playTone('autoOk');
         } else {
-          setEvents((prev) => [evaluated, ...prev].slice(0, 36));
+          setEvents((prev) => [evaluated, ...prev].slice(0, 48));
           appendAiLog(
             `[${evaluated.timestamp}] IA escaló ${evaluated.id} (${evaluated.risk.score} % riesgo) · ${evaluated.risk.legal.law}.`
           );
@@ -252,15 +350,24 @@ export default function App() {
     [aiEnabled, model, appendAiLog]
   );
 
-  // Flujo automático continuo (sigue entregando al humano incluso con IA apagada)
+  // Flujo continuo en vivo (sigue entrando con IA ON u OFF si hay conexión y no está en pausa)
   useEffect(() => {
-    if (!entered || !autoStream || tourStep !== null) return undefined;
+    if (!entered || !autoStream || !isOnline || tourStep !== null) {
+      return undefined;
+    }
     const interval = setInterval(() => {
-      if (pendingEvents.length >= 18) return;
+      if (pendingEvents.length >= 24) return;
       processIncomingOperation(false);
     }, 4200);
     return () => clearInterval(interval);
-  }, [entered, autoStream, tourStep, pendingEvents.length, processIncomingOperation]);
+  }, [
+    entered,
+    autoStream,
+    isOnline,
+    tourStep,
+    pendingEvents.length,
+    processIncomingOperation,
+  ]);
 
   const handleOpenModal = (evt) => {
     playTone('click');
@@ -279,9 +386,39 @@ export default function App() {
     setIsResolving(true);
     const cleanNote = sanitizeNote(noteInput, 160);
     const label = newStatus === 'BLOCKED' ? 1 : 0;
+    const prevStatus = selectedEvent.status;
+    const amt = Number(selectedEvent.amount) || 0;
 
     const training = trainModelStep(model, selectedEvent, label, cleanNote);
     setModel(training.model);
+
+    // Actualización estrictamente coherente de contadores acumulativos (total nunca baja)
+    setTotals((prev) => {
+      const next = { ...prev };
+      if (prevStatus === 'PENDING') {
+        if (newStatus === 'APPROVED') next.humanApproved += 1;
+        else {
+          next.humanBlocked += 1;
+          next.protectedCapital += amt;
+        }
+      } else if (prevStatus === 'AUTO_APPROVED') {
+        next.aiApproved = Math.max(0, next.aiApproved - 1);
+        if (newStatus === 'APPROVED') next.humanApproved += 1;
+        else {
+          next.humanBlocked += 1;
+          next.protectedCapital += amt;
+        }
+      } else if (prevStatus === 'APPROVED' && newStatus === 'BLOCKED') {
+        next.humanApproved = Math.max(0, next.humanApproved - 1);
+        next.humanBlocked += 1;
+        next.protectedCapital += amt;
+      } else if (prevStatus === 'BLOCKED' && newStatus === 'APPROVED') {
+        next.humanBlocked = Math.max(0, next.humanBlocked - 1);
+        next.humanApproved += 1;
+        next.protectedCapital = Math.max(0, next.protectedCapital - amt);
+      }
+      return next;
+    });
 
     setEvents((prev) =>
       prev.map((e) => {
@@ -326,6 +463,7 @@ export default function App() {
     seqRef.current = fresh.seq;
     setModel(fresh.model);
     setEvents(fresh.events);
+    setTotals(fresh.totals);
     setAiEnabled(true);
     setAutoStream(true);
     setNotifSnoozedUntil(0);
@@ -333,7 +471,7 @@ export default function App() {
     setNoteInput('');
     setAiLogs([
       'Sesión reiniciada con nuevos casos aleatorios.',
-      'Compendio normativo España activo: PSD2, SEPBLAC, RGPD y Banco de España.',
+      'Biblioteca normativa España sincronizada: PSD2, SEPBLAC, RGPD y Banco de España.',
     ]);
   };
 
@@ -341,7 +479,25 @@ export default function App() {
   const isSpot = (id) => currentTour?.id === id;
   const isDeckSpotlight = isSpot('kpis') || isSpot('topbar-actions');
   const activeAdvisoryEvent = pendingEvents[0] || events[0] || null;
-  const isAiOffline = !autoStream || !aiEnabled;
+
+  // Semáforo operativo: Rojo = Sin conexión · Naranja = En pausa/espera · Verde = Activo
+  const sentinelState = !isOnline
+    ? 'offline'
+    : !autoStream
+      ? 'paused'
+      : 'active';
+
+  const isAiOffline = sentinelState !== 'active' || !aiEnabled;
+
+  const statusText =
+    sentinelState === 'offline'
+      ? 'SIN CONEXIÓN · MODO LOCAL'
+      : sentinelState === 'paused'
+        ? 'EN PAUSA (pulsa el escudo)'
+        : aiScanning
+          ? 'ANALIZANDO OPERACIÓN...'
+          : `ACTIVO · IA ${aiEnabled ? 'ENCENDIDA' : 'APAGADA (MODO MANUAL)'}`;
+
   const showNotifications =
     !currentTour &&
     !selectedEvent &&
@@ -371,15 +527,7 @@ export default function App() {
         <main className="welcome-wrap">
           <section className="welcome-card animate-in">
             <div className="welcome-hero">
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  gap: '0.75rem',
-                  flexWrap: 'wrap',
-                }}
-              >
+              <div className="lab-footer-row">
                 <span className="pill-dark">
                   <SentinelBrandIcon size={26} /> Arquitectura Antifraude con
                   IA* Supervisada (HITL)
@@ -410,7 +558,7 @@ export default function App() {
                 <span className="hero-spec-tag">Benchmark 30.000 ops</span>
                 <span className="hero-spec-tag">Web Crypto SHA-256</span>
                 <span className="hero-spec-tag">Anti-CSRF &amp; Anti-XSS</span>
-                <span className="hero-spec-tag">CSP + Vitest TDD</span>
+                <span className="hero-spec-tag">Sync BOE + Vitest TDD</span>
               </div>
             </div>
 
@@ -418,10 +566,10 @@ export default function App() {
               <div className="feature-grid">
                 <article className="feature-box interactive-card">
                   <span className="step-num mono">01</span>
-                  <h3>IA* + Compendio Legal</h3>
+                  <h3>IA* + Biblioteca Legal BOE</h3>
                   <p>
-                    Aprueba sola únicamente al 100 % de seguridad (auditable) y
-                    ofrece buscador normativo PSD2, SEPBLAC y RGPD.
+                    Aprueba sola únicamente casos 100 % seguros (auditables) y
+                    ofrece biblioteca normativa estructurada por capítulos.
                   </p>
                 </article>
                 <article className="feature-box interactive-card">
@@ -429,7 +577,7 @@ export default function App() {
                   <h3>6 Defensas Verificables (F12)</h3>
                   <p>
                     Pon a prueba HTTP 429, Anti-XSS, SHA-256, Idempotencia
-                    Anti-CSRF y Auditoría CSP/CSV en directo.
+                    Anti-CSRF y Diagnóstico de Seguridad en directo.
                   </p>
                 </article>
                 <article className="feature-box interactive-card">
@@ -442,15 +590,7 @@ export default function App() {
                 </article>
               </div>
 
-              <div
-                style={{
-                  display: 'flex',
-                  flexWrap: 'wrap',
-                  justifyContent: 'space-between',
-                  gap: '0.85rem',
-                  alignItems: 'center',
-                }}
-              >
+              <div className="lab-footer-row">
                 <div style={{ display: 'flex', gap: '0.65rem', flexWrap: 'wrap' }}>
                   <button
                     className="btn-primary"
@@ -494,7 +634,6 @@ export default function App() {
       <BackgroundCrystalWaves />
       {currentTour && <div className="tour-dimmer" aria-hidden="true" />}
 
-      {/* BLOQUE ANCLADO SUPERIOR con aislamiento estricto por paso del tutorial */}
       <div
         className={`sticky-command-deck ${currentTour ? 'tour-locked' : ''} ${
           isDeckSpotlight ? 'tour-elevated' : ''
@@ -513,7 +652,7 @@ export default function App() {
           <div className="topbar">
             <div className="brand">
               <button
-                className={`shield-4d-btn ${!autoStream ? 'is-paused' : ''}`}
+                className={`shield-4d-btn state-${sentinelState}`}
                 onClick={() => {
                   playTone('click');
                   setAutoStream((s) => !s);
@@ -529,15 +668,9 @@ export default function App() {
               </button>
               <div>
                 <h1>Sentinel HITL</h1>
-                <span className="brand-sub mono">
-                  <span
-                    className={`live-dot ${!autoStream || metrics.threatLevel === 'ELEVADO' ? 'danger' : ''}`}
-                  />
-                  {!autoStream
-                    ? 'PAUSADO (pulsa el escudo)'
-                    : aiScanning
-                      ? 'ANALIZANDO OPERACIÓN...'
-                      : `EN VIVO · IA ${aiEnabled ? 'ACTIVA' : 'APAGADA (MODO HUMANO)'}`}
+                <span className={`brand-sub mono text-state-${sentinelState}`}>
+                  <span className={`live-dot state-${sentinelState}`} />
+                  {statusText}
                 </span>
               </div>
             </div>
@@ -656,19 +789,19 @@ export default function App() {
               <div className="kpi-value mono">{metrics.pending}</div>
               <div className="kpi-sub">
                 {metrics.criticalPending > 0
-                  ? `${metrics.criticalPending} críticas requieren acción`
+                  ? `${metrics.criticalPending} críticos requieren acción`
                   : 'Esperando decisión humana'}
               </div>
             </div>
             <div className="card kpi-card interactive-card">
-              <div className="kpi-label">Aprobadas por IA</div>
+              <div className="kpi-label">Aprobados por IA</div>
               <div className="kpi-value mono" style={{ color: 'var(--accent)' }}>
-                {metrics.aiResolved}
+                {metrics.aiApproved}
               </div>
-              <div className="kpi-sub">Solo 100 % seguras (auditables)</div>
+              <div className="kpi-sub">Solo 100 % seguros (auditables)</div>
             </div>
             <div className="card kpi-card interactive-card">
-              <div className="kpi-label">Resueltas en Total</div>
+              <div className="kpi-label">Resueltos en Total</div>
               <div className="kpi-value mono">{metrics.totalResolved}</div>
               <div className="kpi-sub">
                 {metrics.humanResolved} humano · {metrics.aiApproved} IA
@@ -692,7 +825,7 @@ export default function App() {
                       riesgo
                     </span>
                     <span className="cap-sep">·</span>
-                    <span>{metrics.criticalPending} críticas</span>
+                    <span>{metrics.criticalPending} críticos</span>
                   </>
                 ) : (
                   <span style={{ color: 'var(--success)', fontWeight: 700 }}>
@@ -746,10 +879,10 @@ export default function App() {
               <span className="section-eyebrow mono">
                 MÓDULO 01 · CENTRO DE OPERACIONES HITL
               </span>
-              <h2>Supervisión Antifraude y Asesoría Legal en Vivo</h2>
+              <h2>Supervisión Antifraude y Biblioteca Normativa en Vivo</h2>
               <p>
-                La IA aprueba únicamente operaciones 100 % seguras (revisables a
-                la derecha) y te asiste con la normativa española en cada alerta.
+                La IA aprueba únicamente casos 100 % seguros (revisables a la
+                derecha) y te asiste con la legislación española en cada alerta.
               </p>
             </div>
 
@@ -762,43 +895,38 @@ export default function App() {
               {!isAiOffline && (
                 <div className={`ai-scan-bar ${aiScanning ? 'fast' : ''}`} />
               )}
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  gap: '0.6rem',
-                  flexWrap: 'wrap',
-                }}
-              >
+              <div className="lab-footer-row">
                 <div
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '0.65rem',
+                    gap: '0.75rem',
                     flexWrap: 'wrap',
                   }}
                 >
                   <strong
                     style={{
-                      fontSize: '1.04rem',
+                      fontSize: '1.05rem',
                       color: isAiOffline ? '#94a3b8' : '#7dd3fc',
                     }}
                   >
-                    Cerebro Sentinel AI · Normativa España (Edición 2026)
+                    Cerebro Sentinel AI · Biblioteca Normativa (BOE)
                   </strong>
                   {isAiOffline ? (
-                    <span className="badge badge-critical">
-                      {!autoStream
-                        ? 'PAUSADO · PULSA EL ESCUDO'
-                        : 'IA APAGADA · MODO 100 % MANUAL'}
+                    <span className="monitor-status-text mono tone-warn">
+                      ●{' '}
+                      {sentinelState === 'offline'
+                        ? 'SIN CONEXIÓN'
+                        : sentinelState === 'paused'
+                          ? 'EN PAUSA · PULSA EL ESCUDO'
+                          : 'IA APAGADA · MODO MANUAL'}
                     </span>
                   ) : (
                     <button
                       className="legal-trigger-btn"
                       onClick={() => handleOpenLegalModal('')}
                     >
-                      2 novedades vigentes · Consultar leyes ↗
+                      Abrir biblioteca por capítulos ↗
                     </button>
                   )}
                 </div>
@@ -815,15 +943,7 @@ export default function App() {
 
               <div className="legal-grid">
                 <div className="legal-box">
-                  <div
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      gap: '0.5rem',
-                      marginBottom: '0.4rem',
-                    }}
-                  >
+                  <div className="lab-footer-row" style={{ marginBottom: '0.4rem' }}>
                     <span
                       className="mono"
                       style={{ fontSize: '0.78rem', color: '#38bdf8' }}
@@ -840,7 +960,7 @@ export default function App() {
                           )
                         }
                       >
-                        Abrir ley completa ↗
+                        Leer capítulo completo ↗
                       </button>
                     )}
                   </div>
@@ -899,7 +1019,7 @@ export default function App() {
               <div>
                 <div className="column-header-bar">
                   <h3>Tus Casos Pendientes</h3>
-                  <span className="badge badge-critical mono">
+                  <span className="col-counter mono tone-critical">
                     {pendingEvents.length}
                   </span>
                 </div>
@@ -926,7 +1046,7 @@ export default function App() {
                           }`}
                         >
                           <div style={{ flex: '1 1 260px' }}>
-                            <EventBadges
+                            <CaseTelemetryHeader
                               evt={{
                                 ...evt,
                                 risk: { ...evt.risk, score: group.maxScore },
@@ -964,7 +1084,7 @@ export default function App() {
                                 {group.items.map((sub) => (
                                   <li key={sub.id}>
                                     <span className="mono">{sub.id}</span>:{' '}
-                                    {sub.title} ({sub.risk.score}%)
+                                    {sub.title} ({sub.risk.score} %)
                                   </li>
                                 ))}
                               </ul>
@@ -985,8 +1105,8 @@ export default function App() {
 
               <div>
                 <div className="column-header-bar">
-                  <h3>Aprobadas IA · 100 % Seguras</h3>
-                  <span className="badge badge-ok mono">
+                  <h3>Aprobados por IA · 100 % Seguros</h3>
+                  <span className="col-counter mono tone-ok">
                     {aiApprovedEvents.length}
                   </span>
                 </div>
@@ -1000,7 +1120,7 @@ export default function App() {
                           color: 'var(--text-muted)',
                         }}
                       >
-                        Aún no hay operaciones 100 % seguras aprobadas por IA.
+                        Aún no hay casos 100 % seguros aprobados por la IA.
                       </p>
                     </div>
                   ) : (
@@ -1010,7 +1130,7 @@ export default function App() {
                         className="compact-card interactive-card animate-in"
                       >
                         <div style={{ minWidth: 0, flex: 1 }}>
-                          <EventBadges evt={evt} />
+                          <CaseTelemetryHeader evt={evt} />
                           <strong className="case-title-compact">
                             {evt.title}
                             {evt.amount > 0
@@ -1054,23 +1174,15 @@ export default function App() {
           />
         )}
 
-        {/* Notificación cerrable (vuelve a los 5 minutos si persisten alertas) */}
         {showNotifications && (
           <aside className="toast-stack" aria-live="polite">
             <div className="toast-card animate-in">
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  marginBottom: '0.45rem',
-                }}
-              >
-                <span className="badge badge-critical">
-                  {pendingEvents.length}{' '}
+              <div className="lab-footer-row" style={{ marginBottom: '0.45rem' }}>
+                <span className="status-inline-text mono tone-critical">
+                  ● {pendingEvents.length}{' '}
                   {pendingEvents.length === 1
-                    ? 'amenaza pendiente'
-                    : 'amenazas pendientes'}
+                    ? 'CASO PENDIENTE'
+                    : 'CASOS PENDIENTES'}
                 </span>
                 <button
                   className="btn-secondary"
@@ -1087,7 +1199,7 @@ export default function App() {
               </div>
               <strong style={{ display: 'block', fontSize: '0.95rem' }}>
                 {pendingEvents.length > 3
-                  ? `Tienes ${pendingEvents.length} alertas esperando revisión`
+                  ? `Tienes ${pendingEvents.length} casos esperando revisión`
                   : pendingEvents[0].title}
               </strong>
               <div
@@ -1097,7 +1209,7 @@ export default function App() {
                   margin: '0.25rem 0 0.65rem',
                 }}
               >
-                Si cierras este aviso, reaparecerá en 5 min si quedan alertas.
+                Si cierras este aviso, reaparecerá en 5 min si quedan casos.
               </div>
               <button
                 className="btn-primary"
@@ -1111,7 +1223,6 @@ export default function App() {
         )}
       </div>
 
-      {/* Guía Spotlight (6 pasos) */}
       <GuidedTourCard
         tourStep={tourStep}
         tourPos={tourPos}
@@ -1119,15 +1230,17 @@ export default function App() {
         onClose={() => setTourStep(null)}
       />
 
-      {/* Modal del Compendio Legal de España */}
       <LegalCompendiumModal
         key={legalModalState.open ? legalModalState.query : 'closed'}
         open={legalModalState.open && !currentTour}
+        chapters={lawData.chapters}
+        syncedAt={lawData.syncedAt}
+        isSyncing={lawData.isSyncing}
         initialQuery={legalModalState.query}
+        onRefresh={fetchLiveLaws}
         onClose={() => setLegalModalState({ open: false, query: '' })}
       />
 
-      {/* Modal HITL */}
       <HitlDecisionModal
         event={!currentTour ? selectedEvent : null}
         noteInput={noteInput}

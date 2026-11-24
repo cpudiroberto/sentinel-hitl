@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
-import { SPANISH_LEGAL_COMPENDIUM } from '../engine/securityEngine';
 import { playTone } from '../utils/audioEngine';
-import { EventBadges } from './BrandAssets';
+import { CaseTelemetryHeader } from './BrandAssets';
 import { TOUR_STEPS } from '../utils/tourSteps';
 
 export function GuidedTourCard({ tourStep, tourPos, onChangeStep, onClose }) {
@@ -15,14 +14,7 @@ export function GuidedTourCard({ tourStep, tourPos, onChangeStep, onClose }) {
       role="dialog"
       aria-label="Guía interactiva"
     >
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          gap: '0.5rem',
-        }}
-      >
+      <div className="lab-footer-row">
         <span className="tour-step-badge mono">
           Guía interactiva · Paso {tourStep + 1} de {TOUR_STEPS.length}
         </span>
@@ -51,24 +43,9 @@ export function GuidedTourCard({ tourStep, tourPos, onChangeStep, onClose }) {
       <h3 style={{ margin: '0 0 0.55rem', fontSize: '1.24rem' }}>
         {current.title}
       </h3>
-      <p
-        style={{
-          margin: '0 0 1.25rem',
-          fontSize: '0.96rem',
-          color: 'var(--text-muted)',
-        }}
-      >
-        {current.body}
-      </p>
+      <p className="tour-body-text">{current.body}</p>
 
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          gap: '0.5rem',
-        }}
-      >
+      <div className="lab-footer-row">
         <button
           className="btn-secondary"
           disabled={tourStep === 0}
@@ -105,43 +82,79 @@ export function GuidedTourCard({ tourStep, tourPos, onChangeStep, onClose }) {
   );
 }
 
+/**
+ * Biblioteca Normativa de España estructurada como un libro:
+ * Columna izquierda = Índice por Capítulos + Buscador
+ * Columna derecha = Página de lectura del capítulo + Enlace oficial BOE + Copiar
+ */
 export function LegalCompendiumModal({
   open,
+  chapters,
+  syncedAt,
+  isSyncing,
   initialQuery,
+  onRefresh,
   onClose,
 }) {
   const [search, setSearch] = useState(initialQuery || '');
-  const [category, setCategory] = useState('Todas');
+  const [selectedId, setSelectedId] = useState(() => {
+    if (initialQuery) {
+      const q = initialQuery.toLowerCase();
+      const match = chapters.find(
+        (c) =>
+          c.code.toLowerCase().includes(q) ||
+          c.category.toLowerCase().includes(q) ||
+          c.title.toLowerCase().includes(q)
+      );
+      if (match) return match.id;
+    }
+    return chapters[0]?.id || '';
+  });
   const [copiedId, setCopiedId] = useState(null);
 
-  const filteredLaws = useMemo(() => {
+  const filteredChapters = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return SPANISH_LEGAL_COMPENDIUM.filter((law) => {
-      const matchCat = category === 'Todas' || law.category === category;
-      const matchText =
-        !q ||
+    if (!q) return chapters;
+    return chapters.filter(
+      (law) =>
+        law.chapter.toLowerCase().includes(q) ||
+        law.category.toLowerCase().includes(q) ||
         law.code.toLowerCase().includes(q) ||
         law.title.toLowerCase().includes(q) ||
         law.summary.toLowerCase().includes(q) ||
         law.gap.toLowerCase().includes(q) ||
-        law.protocol.toLowerCase().includes(q);
-      return matchCat && matchText;
-    });
-  }, [search, category]);
+        law.protocol.toLowerCase().includes(q)
+    );
+  }, [chapters, search]);
 
   if (!open) return null;
 
+  const activeLaw =
+    filteredChapters.find((c) => c.id === selectedId) ||
+    filteredChapters[0] ||
+    null;
+
   const handleCopy = async (law) => {
-    const text = `${law.code} — ${law.title}\nResumen: ${law.summary}\nVacío / Riesgo: ${law.gap}\nProtocolo del agente: ${law.protocol}`;
+    const text = `${law.chapter} · ${law.code} (${law.boeId || 'BOE'})\n${law.title}\nResumen: ${law.summary}\nVacío / Riesgo: ${law.gap}\nProtocolo del agente: ${law.protocol}\nFuente oficial: ${law.boeUrl || 'https://www.boe.es'}`;
     try {
       await navigator.clipboard.writeText(text);
       playTone('verify');
       setCopiedId(law.id);
       setTimeout(() => setCopiedId(null), 2000);
     } catch {
-      // Fallback silencioso
+      // Silencio seguro
     }
   };
+
+  const formattedSync = syncedAt
+    ? new Date(syncedAt).toLocaleString('es-ES', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : 'Compendio local verificado';
 
   return (
     <div
@@ -151,113 +164,134 @@ export function LegalCompendiumModal({
       onClick={onClose}
     >
       <div
-        className="modal-panel modal-wide animate-in"
+        className="modal-panel modal-book animate-in"
         onClick={(e) => e.stopPropagation()}
       >
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            gap: '0.75rem',
-            marginBottom: '0.8rem',
-          }}
-        >
+        <div className="book-topbar">
           <div>
-            <span className="badge badge-ai">
-              Compendio Normativo España · Edición 2026
-            </span>
-            <h3 style={{ margin: '0.35rem 0 0', fontSize: '1.28rem' }}>
-              Buscador de Normativa Bancaria y Seguridad
+            <div className="editorial-kicker mono">
+              BIBLIOTECA NORMATIVA DE ESPAÑA · FUENTE BOE.ES
+            </div>
+            <h3 style={{ margin: '0.15rem 0 0', fontSize: '1.3rem' }}>
+              Compendio Legal Bancario y de Seguridad
             </h3>
+            <div className="book-sync-meta mono">
+              Última sincronización: {formattedSync}
+            </div>
           </div>
-          <button className="btn-secondary" onClick={onClose}>
-            Cerrar
-          </button>
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <button
+              className="btn-secondary"
+              disabled={isSyncing}
+              onClick={() => {
+                playTone('verify');
+                onRefresh();
+              }}
+            >
+              {isSyncing ? 'Comprobando...' : 'Sincronizar ahora'}
+            </button>
+            <button className="btn-secondary" onClick={onClose}>
+              Cerrar
+            </button>
+          </div>
         </div>
 
         <input
           className="xss-input"
-          placeholder="Buscar por ley, artículo, vacío legal o protocolo (ej. PSD2, SEPBLAC, 2FA, RGPD)..."
+          placeholder="Buscar capítulo, ley, artículo o protocolo (ej. PSD2, SEPBLAC, 2FA, RGPD, ENS)..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          style={{ marginBottom: '0.85rem' }}
+          style={{ marginBottom: '1rem' }}
         />
 
-        <div className="inline-controls" style={{ marginBottom: '1rem' }}>
-          {[
-            'Todas',
-            'Pagos / PSD2',
-            'Blanqueo / SEPBLAC',
-            'Datos / RGPD',
-            'Banca / BdE',
-            'Seguridad / ENS',
-          ].map((cat) => (
-            <button
-              key={cat}
-              className={category === cat ? 'btn-primary' : 'btn-secondary'}
-              style={{ padding: '0.36rem 0.75rem', fontSize: '0.8rem' }}
-              onClick={() => {
-                playTone('click');
-                setCategory(cat);
-              }}
-            >
-              {cat}
-            </button>
-          ))}
-        </div>
-
-        {filteredLaws.length === 0 ? (
-          <p style={{ color: 'var(--text-muted)' }}>
-            No se encontraron disposiciones que coincidan con tu búsqueda.
-          </p>
-        ) : (
-          filteredLaws.map((law) => (
-            <article key={law.id} className="law-card">
-              <div className="lab-footer-row" style={{ marginBottom: '0.4rem' }}>
-                <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
-                  <span className="badge badge-ai">{law.category}</span>
-                  <span
-                    className={`badge ${law.isNew ? 'badge-high' : 'badge-neutral'}`}
-                  >
-                    {law.updated}
-                  </span>
-                </div>
-                <button
-                  className="btn-secondary"
-                  style={{ padding: '0.32rem 0.72rem', fontSize: '0.78rem' }}
-                  onClick={() => handleCopy(law)}
-                >
-                  {copiedId === law.id ? '¡Copiado! ✓' : 'Copiar texto'}
-                </button>
-              </div>
-              <strong style={{ display: 'block', fontSize: '1.02rem' }}>
-                {law.code} · {law.title}
-              </strong>
-              <p
-                style={{
-                  margin: '0.35rem 0',
-                  fontSize: '0.88rem',
-                  color: 'var(--text-muted)',
-                }}
-              >
-                {law.summary}
+        <div className="book-layout">
+          {/* Columna izquierda: Índice de capítulos como un libro */}
+          <aside className="book-toc" aria-label="Índice por capítulos">
+            <div className="book-toc-header mono">ÍNDICE POR TEMAS</div>
+            {filteredChapters.length === 0 ? (
+              <p style={{ fontSize: '0.84rem', color: 'var(--text-muted)' }}>
+                Sin capítulos coincidentes.
               </p>
-              <div style={{ fontSize: '0.86rem', marginBottom: '0.25rem' }}>
-                <strong style={{ color: 'var(--warning)' }}>
-                  Posible vacío legal:
-                </strong>{' '}
-                {law.gap}
-              </div>
-              <div style={{ fontSize: '0.86rem' }}>
-                <strong style={{ color: 'var(--success)' }}>
-                  Protocolo del agente:
-                </strong>{' '}
-                {law.protocol}
-              </div>
-            </article>
-          ))
-        )}
+            ) : (
+              filteredChapters.map((ch) => (
+                <button
+                  key={ch.id}
+                  className={`book-toc-item ${
+                    activeLaw?.id === ch.id ? 'active' : ''
+                  }`}
+                  onClick={() => {
+                    playTone('click');
+                    setSelectedId(ch.id);
+                  }}
+                >
+                  <span className="book-toc-num mono">{ch.chapter}</span>
+                  <span className="book-toc-text">
+                    <strong>{ch.category}</strong>
+                    <small className="mono">{ch.code}</small>
+                  </span>
+                </button>
+              ))
+            )}
+          </aside>
+
+          {/* Columna derecha: Página de lectura */}
+          <div className="book-page">
+            {activeLaw ? (
+              <>
+                <div className="book-page-head">
+                  <span className="mono" style={{ color: 'var(--accent)', fontSize: '0.8rem', fontWeight: 700 }}>
+                    {activeLaw.chapter} · {activeLaw.boeId || 'BOE'} · {activeLaw.status || 'Vigente'}
+                  </span>
+                  <div style={{ display: 'flex', gap: '0.45rem', flexWrap: 'wrap' }}>
+                    {activeLaw.boeUrl && (
+                      <a
+                        href={activeLaw.boeUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn-link btn-secondary"
+                        style={{ padding: '0.32rem 0.7rem', fontSize: '0.78rem' }}
+                      >
+                        Abrir en BOE.es ↗
+                      </a>
+                    )}
+                    <button
+                      className="btn-primary"
+                      style={{ padding: '0.32rem 0.75rem', fontSize: '0.78rem' }}
+                      onClick={() => handleCopy(activeLaw)}
+                    >
+                      {copiedId === activeLaw.id ? '¡Copiado! ✓' : 'Copiar artículo'}
+                    </button>
+                  </div>
+                </div>
+
+                <h4 className="book-page-title">{activeLaw.title}</h4>
+                <div className="book-page-meta mono">
+                  Norma: {activeLaw.code} · Consolidación BOE:{' '}
+                  {activeLaw.lastConsolidated || 'Vigente'}
+                </div>
+
+                <div className="book-section">
+                  <h5>1. Objeto y alcance normativo</h5>
+                  <p>{activeLaw.summary}</p>
+                </div>
+
+                <div className="book-section book-section-warn">
+                  <h5>2. Posible vacío legal o vector de riesgo</h5>
+                  <p>{activeLaw.gap}</p>
+                </div>
+
+                <div className="book-section book-section-ok">
+                  <h5>3. Protocolo recomendado para el agente</h5>
+                  <p>{activeLaw.protocol}</p>
+                </div>
+              </>
+            ) : (
+              <p style={{ color: 'var(--text-muted)' }}>
+                No se encontraron capítulos que coincidan con «{search}».
+              </p>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -285,9 +319,9 @@ export function HitlDecisionModal({
         className="modal-panel animate-in"
         onClick={(e) => e.stopPropagation()}
       >
-        <EventBadges evt={event} />
+        <CaseTelemetryHeader evt={event} />
 
-        <h3 style={{ margin: '0.2rem 0 0.3rem', fontSize: '1.25rem' }}>
+        <h3 style={{ margin: '0.25rem 0 0.3rem', fontSize: '1.25rem' }}>
           {event.title}
           {event.amount > 0
             ? ` (${event.amount.toLocaleString('es-ES')} €)`
@@ -306,15 +340,7 @@ export function HitlDecisionModal({
         </p>
 
         <div className="modal-ai-box">
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              gap: '0.5rem',
-              marginBottom: '0.35rem',
-            }}
-          >
+          <div className="lab-footer-row" style={{ marginBottom: '0.35rem' }}>
             <strong style={{ color: '#7dd3fc' }}>{event.risk.legal?.law}</strong>
             <button
               className="legal-trigger-btn"
@@ -323,7 +349,7 @@ export function HitlDecisionModal({
                 onOpenLaw(event.risk.legal?.law.split(' ')[0] || '')
               }
             >
-              Ver ley ↗
+              Ver en biblioteca ↗
             </button>
           </div>
           <div style={{ color: '#cbd5e1', marginBottom: '0.35rem' }}>
@@ -376,7 +402,7 @@ export function HitlDecisionModal({
             disabled={isResolving}
             onClick={() => onResolve('APPROVED')}
           >
-            Aprobar operación
+            Aprobar caso
           </button>
           <button
             className="btn-danger"

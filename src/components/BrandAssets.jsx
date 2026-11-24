@@ -1,6 +1,3 @@
-/**
- * Logotipo Escudo 4D facetado (idéntico en favicon, portada, cabecera y dossier).
- */
 export const SentinelBrandIcon = ({ size = 34, paused = false }) => (
   <svg width={size} height={size} viewBox="0 0 64 64" fill="none" aria-hidden="true">
     <defs>
@@ -19,19 +16,16 @@ export const SentinelBrandIcon = ({ size = 34, paused = false }) => (
         <stop offset="1" stopColor="#0284c7" />
       </radialGradient>
     </defs>
-    {/* Escudo exterior facetado */}
     <path
       d="M32 3L56 12.5V30.5C56 45.4 45.8 56.6 32 61C18.2 56.6 8 45.4 8 30.5V12.5L32 3Z"
       fill="url(#s4dOuter)"
       stroke="#e0f2fe"
       strokeWidth="2.4"
     />
-    {/* Faceta derecha en sombra para volumen 4D */}
     <path
       d="M32 3L56 12.5V30.5C56 45.4 45.8 56.6 32 61V3Z"
       fill="url(#s4dFacet)"
     />
-    {/* Marco interno de precisión */}
     <path
       d="M32 12L47 18V30.5C47 39.8 40.6 47.4 32 50.6C23.4 47.4 17 39.8 17 30.5V18L32 12Z"
       fill="#050e20"
@@ -39,7 +33,6 @@ export const SentinelBrandIcon = ({ size = 34, paused = false }) => (
       stroke="#38bdf8"
       strokeWidth="1.9"
     />
-    {/* Núcleo central activo o símbolo de pausa */}
     {paused ? (
       <>
         <rect x="25" y="23" width="5" height="16" rx="1.6" fill="#f8fafc" />
@@ -106,22 +99,34 @@ export const BackgroundCrystalWaves = () => (
 );
 
 /**
- * Fila unificada de etiquetas: [ID] [Riesgo %] [Categoría] [Nivel] [+ Agrupada]
+ * Cabecera editorial de telemetría para casos (SIN etiquetas ni pastillas).
+ * Mantiene orden idéntico en cola, tarjetas contraídas y modal:
+ * Indicador de color · Riesgo % | Categoría | Nivel | ID | [Agrupada]
  */
-export const EventBadges = ({ evt, clusterCount = 1 }) => {
+export const CaseTelemetryHeader = ({ evt, clusterCount = 1 }) => {
   const score = evt.risk?.score ?? 0;
-  const riskClass =
-    score === 0 ? 'badge-ok' : score >= 75 ? 'badge-critical' : 'badge-high';
+  const tone =
+    score === 0 ? 'tone-ok' : score >= 75 ? 'tone-critical' : 'tone-warn';
+
   return (
-    <div className="badge-row">
-      <span className="badge badge-id mono">{evt.id}</span>
-      <span className={`badge ${riskClass}`}>
-        {score === 0 ? '100% Segura' : `Riesgo: ${score}%`}
+    <div className="telemetry-strip">
+      <span className={`telemetry-risk mono ${tone}`}>
+        <span className={`telemetry-dot ${tone}`} />
+        {score === 0 ? '100 % Seguro' : `${score} % Riesgo`}
       </span>
-      <span className="badge badge-ai">{evt.risk?.threatCategory}</span>
-      <span className="badge badge-neutral">{evt.difficulty || 'Media'}</span>
+      <span className="telemetry-sep">/</span>
+      <span className="telemetry-cat">{evt.risk?.threatCategory}</span>
+      <span className="telemetry-sep">·</span>
+      <span className="telemetry-level">{evt.difficulty || 'Media'}</span>
+      <span className="telemetry-sep">·</span>
+      <span className="telemetry-id mono">{evt.id}</span>
       {clusterCount > 1 && (
-        <span className="badge badge-high">Agrupada · {clusterCount} casos</span>
+        <>
+          <span className="telemetry-sep">·</span>
+          <span className="telemetry-cluster">
+            {clusterCount} casos agrupados
+          </span>
+        </>
       )}
     </div>
   );

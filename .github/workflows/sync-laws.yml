@@ -1,0 +1,36 @@
+name: Daily BOE Legal Compendium Sync
+
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync-boe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Consultar API Datos Abiertos del BOE
+        run: node scripts/sync-boe-laws.mjs
+
+      - name: Publicar cambios si hubo actualizaciones en el BOE
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if [[ -n "$(git status --porcelain public/data/spanish-laws.json)" ]]; then
+            git add public/data/spanish-laws.json
+            git commit -m "chore(legal): sincronizacion diaria automatica desde API Datos Abiertos BOE"
+            git push
+          else
+            echo "Sin cambios nuevos en el BOE hoy."
+          fi

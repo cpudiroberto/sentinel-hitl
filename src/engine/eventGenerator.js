@@ -1,6 +1,6 @@
 import { createInitialModel, evaluateRiskEvent } from './securityEngine';
 
-export const STORAGE_SESSION_KEY = 'sentinel_hitl_session_v7';
+export const STORAGE_SESSION_KEY = 'sentinel_hitl_session_v8';
 export const STORAGE_THEME_KEY = 'sentinel_hitl_theme_v1';
 
 const ACCOUNTS_POOL = [
@@ -79,9 +79,6 @@ const CHANNELS = ['Web Banking', 'API PSD2', 'App Móvil iOS', 'Backoffice Admin
 
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
-/**
- * Genera un evento realista único y calcula su puntuación personalizada con el modelo actual.
- */
 export function generateRealisticEvent(model, seq, forceRisky = false) {
   const isSafe = !forceRisky && Math.random() < 0.32;
   const accObj = pick(ACCOUNTS_POOL);
@@ -174,9 +171,11 @@ export function createFreshSession() {
   const e1 = generateRealisticEvent(model, baseSeq, true);
   const e2 = generateRealisticEvent(model, baseSeq + 1, true);
   const e3 = generateRealisticEvent(model, baseSeq + 2, false);
+  let initialAiApproved = 0;
   if (e3.risk.score === 0) {
     e3.status = 'AUTO_APPROVED';
-    e3.note = 'Aprobada por IA (100% segura). Pendiente de verificación humana.';
+    e3.note = 'Aprobado por IA (100 % seguro). Pendiente de verificación humana.';
+    initialAiApproved = 1;
   }
   return {
     entered: false,
@@ -186,6 +185,12 @@ export function createFreshSession() {
     seq: baseSeq + 3,
     model,
     events: [e1, e2, e3],
+    totals: {
+      aiApproved: initialAiApproved,
+      humanApproved: 0,
+      humanBlocked: 0,
+      protectedCapital: 0,
+    },
   };
 }
 
@@ -199,13 +204,15 @@ export function loadSession() {
         parsed.model &&
         typeof parsed.model.bias === 'number' &&
         parsed.model.weights &&
-        Array.isArray(parsed.events)
+        Array.isArray(parsed.events) &&
+        parsed.totals &&
+        typeof parsed.totals.aiApproved === 'number'
       ) {
         return parsed;
       }
     }
   } catch {
-    // Recuperación segura si el almacenamiento está corrupto o manipulado
+    // Recuperación segura
   }
   return createFreshSession();
 }

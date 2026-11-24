@@ -12,7 +12,6 @@ import { playTone } from '../utils/audioEngine';
 const INITIAL_CRYPTO_PAYLOAD = 'EVT-9041 | ES91-4821 | 3400 EUR | BLOCKED';
 
 export default function DefenseLab({ isSpotlight }) {
-  // 1. Escudo HTTP 429
   const limiterRef = useRef(
     createRateLimiter({ maxAttempts: 5, windowMs: 60000 })
   );
@@ -28,24 +27,20 @@ export default function DefenseLab({ isSpotlight }) {
     'Esperando intentos de autenticación en /api/auth/login...',
   ]);
 
-  // 2. Benchmark Real N+1 en RAM (estado directo -> cero warnings de useMemo)
   const [benchSize, setBenchSize] = useState(15000);
   const [clientCount, setClientCount] = useState(40);
   const [benchmark, setBenchmark] = useState(() =>
     runQueryBenchmark(40, 15000)
   );
 
-  // 3. Anti-XSS
   const [xssInput, setXssInput] = useState(
     '<script>alert("Robo de sesión")</script> Transferencia verificada'
   );
 
-  // 4. Web Crypto API (SHA-256)
   const [cryptoPayload, setCryptoPayload] = useState(INITIAL_CRYPTO_PAYLOAD);
   const [sealedHash, setSealedHash] = useState('');
   const [currentHash, setCurrentHash] = useState('');
 
-  // 5. Anti-CSRF + Idempotencia
   const idempGuardRef = useRef(createIdempotencyGuard());
   const [activeIdempKey, setActiveIdempKey] = useState(() =>
     idempGuardRef.current.generateKey()
@@ -54,11 +49,9 @@ export default function DefenseLab({ isSpotlight }) {
     'Envía una orden (201), repítela para provocar bloqueo (409) o falsifica el CSRF (403).',
   ]);
 
-  // 6. Auditoría Hardening Real (CSP + DOM + CSV)
   const [auditChecks, setAuditChecks] = useState(null);
   const [cspViolations, setCspViolations] = useState(0);
 
-  // Cuenta atrás del bloqueo HTTP 429
   useEffect(() => {
     if (loginStatus.retryAfterSec <= 0) return undefined;
     const interval = setInterval(() => {
@@ -77,7 +70,6 @@ export default function DefenseLab({ isSpotlight }) {
     return () => clearInterval(interval);
   }, [loginStatus.retryAfterSec]);
 
-  // Sello inicial SHA-256 al montar
   useEffect(() => {
     let active = true;
     computeSha256Hex(INITIAL_CRYPTO_PAYLOAD).then((hex) => {
@@ -88,7 +80,6 @@ export default function DefenseLab({ isSpotlight }) {
     };
   }, []);
 
-  // Recálculo SHA-256 al modificar payload
   useEffect(() => {
     let active = true;
     computeSha256Hex(cryptoPayload).then((hex) => {
@@ -99,7 +90,6 @@ export default function DefenseLab({ isSpotlight }) {
     };
   }, [cryptoPayload]);
 
-  // Listener real de violaciones CSP
   useEffect(() => {
     const onViolation = (e) => {
       setCspViolations((v) => v + 1);
@@ -227,30 +217,30 @@ export default function DefenseLab({ isSpotlight }) {
 
     const report = [
       {
-        control: 'Content-Security-Policy (DOM)',
+        control: 'Política CSP (HTML activo)',
         estado: cspMeta ? 'VERIFICADA' : 'AUSENTE',
         evidencia: cspMeta
-          ? `${cspMeta.content.slice(0, 42)}...`
+          ? `${cspMeta.content.slice(0, 40)}...`
           : 'Sin etiqueta CSP',
       },
       {
-        control: 'Referrer-Policy (DOM)',
+        control: 'Referrer-Policy (Privacidad)',
         estado: refMeta ? 'VERIFICADA' : 'AUSENTE',
         evidencia: refMeta?.content || 'Por defecto',
       },
       {
-        control: 'Anti-Tabnabbing (DOM links)',
+        control: 'Enlaces seguros (Anti-Tabnabbing)',
         estado: unsafeLinks === 0 ? 'SEGURO (0)' : `ALERTA (${unsafeLinks})`,
-        evidencia: `${unsafeLinks} enlaces sin noopener`,
+        evidencia: `${unsafeLinks} enlaces externos sin noopener`,
       },
       {
         control: 'Web Crypto API (SHA-256)',
         estado: typeof crypto?.subtle !== 'undefined' ? 'ACTIVA' : 'FALLBACK',
-        evidencia: window.isSecureContext ? 'SecureContext OK' : 'Local',
+        evidencia: window.isSecureContext ? 'Contexto HTTPS/Local seguro' : 'Local',
       },
       {
-        control: 'Test Vivo CSV Injection',
-        estado: csvSafe ? 'BLOQUEADO' : 'FALLO',
+        control: 'Protección fórmulas Excel (CSV)',
+        estado: csvSafe ? 'NEUTRALIZADA' : 'FALLO',
         evidencia: `${testCsvInput} → ${testCsvOut}`,
       },
     ];
@@ -283,14 +273,14 @@ export default function DefenseLab({ isSpotlight }) {
       >
         {/* 1. HTTP 429 */}
         <article className="card interactive-card">
-          <span className="badge badge-critical">
-            1. Escudo de Acceso (HTTP 429)
-          </span>
+          <div className="lab-kicker mono tone-critical">
+            01 · ESCUDO DE ACCESO (HTTP 429)
+          </div>
           <h3 className="lab-card-title">Bloqueo contra fuerza bruta</h3>
           <div className="lab-howto">
-            <strong>Cómo comprobarlo:</strong> Elige una IP y lanza una ráfaga o
-            pulsa 6 veces. Al superar 5 intentos/minuto se activa{' '}
-            <strong>HTTP 429</strong> con cuenta atrás y traza en F12.
+            <strong>Algoritmo en vivo:</strong> Ventana deslizante real (5
+            intentos/min). Elige IP y pulsa «Ráfaga (6x)» para ver el bloqueo
+            HTTP 429 y la cuenta atrás en pantalla y F12.
           </div>
 
           <div className="inline-controls">
@@ -371,45 +361,53 @@ export default function DefenseLab({ isSpotlight }) {
 
         {/* 2. Benchmark Real N+1 */}
         <article className="card interactive-card">
-          <span className="badge badge-ok">
-            2. Rendimiento Real (-{benchmark.reductionPct}% tiempo)
-          </span>
+          <div className="lab-kicker mono tone-ok">
+            02 · RENDIMIENTO REAL (-{benchmark.reductionPct} % TIEMPO)
+          </div>
           <h3 className="lab-card-title">
             Agregación real ({benchSize.toLocaleString('es-ES')} ops)
           </h3>
           <div className="lab-howto">
-            <strong>Cómo comprobarlo:</strong> Ajusta volumen y clientes. Genera
-            transacciones reales en RAM (total:{' '}
+            <strong>Ejecución 100 % real en RAM:</strong> Total sumado:{' '}
             <strong className="mono">
               {benchmark.totalVolumeEur.toLocaleString('es-ES')} €
-            </strong>
-            ) y vuelca la tabla comparativa a F12.
+            </strong>{' '}
+            ({benchmark.totalsMatch ? 'verificado idéntico en ambos' : ''}).
           </div>
 
-          <div className="inline-controls">
-            {[5000, 15000, 30000].map((sz) => (
-              <button
-                key={sz}
-                className={benchSize === sz ? 'btn-primary' : 'btn-secondary'}
-                style={{ padding: '0.35rem 0.65rem', fontSize: '0.78rem' }}
-                onClick={() => handleRunBenchmark(clientCount, sz)}
-              >
-                {(sz / 1000).toFixed(0)}k ops
-              </button>
-            ))}
-            {[20, 40, 80].map((n) => (
-              <button
-                key={n}
-                className={clientCount === n ? 'btn-primary' : 'btn-secondary'}
-                style={{ padding: '0.35rem 0.65rem', fontSize: '0.78rem' }}
-                onClick={() => handleRunBenchmark(n, benchSize)}
-              >
-                {n} cli
-              </button>
-            ))}
+          <div className="bench-control-row">
+            <span className="bench-control-label">Volumen:</span>
+            <div className="bench-btn-group">
+              {[5000, 15000, 30000].map((sz) => (
+                <button
+                  key={sz}
+                  className={benchSize === sz ? 'btn-primary' : 'btn-secondary'}
+                  style={{ padding: '0.32rem 0.65rem', fontSize: '0.78rem' }}
+                  onClick={() => handleRunBenchmark(clientCount, sz)}
+                >
+                  {(sz / 1000).toFixed(0)}k ops
+                </button>
+              ))}
+            </div>
           </div>
 
-          <div>
+          <div className="bench-control-row">
+            <span className="bench-control-label">Clientes:</span>
+            <div className="bench-btn-group">
+              {[20, 40, 80].map((n) => (
+                <button
+                  key={n}
+                  className={clientCount === n ? 'btn-primary' : 'btn-secondary'}
+                  style={{ padding: '0.32rem 0.65rem', fontSize: '0.78rem' }}
+                  onClick={() => handleRunBenchmark(n, benchSize)}
+                >
+                  {n} clientes
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ marginTop: '0.75rem' }}>
             <div className="bench-row">
               <span>
                 N+1 ({benchmark.nPlusOne.iterations.toLocaleString('es-ES')}{' '}
@@ -476,12 +474,14 @@ export default function DefenseLab({ isSpotlight }) {
 
         {/* 3. Anti-XSS */}
         <article className="card interactive-card">
-          <span className="badge badge-ai">3. Sanitización Anti-XSS</span>
-          <h3 className="lab-card-title">Neutralización de scripts</h3>
+          <div className="lab-kicker mono tone-accent">
+            03 · SANITIZACIÓN ANTI-XSS
+          </div>
+          <h3 className="lab-card-title">Neutralización de etiquetas HTML</h3>
           <div className="lab-howto">
             <strong>Cómo comprobarlo:</strong> Carga un vector de ataque o
-            escribe HTML malicioso; verás cuántas etiquetas se neutralizan antes
-            de guardar cualquier nota.
+            escribe código HTML; el filtro elimina las etiquetas ejecutables
+            antes de guardar cualquier nota.
           </div>
           <div className="inline-controls">
             <button
@@ -518,7 +518,7 @@ export default function DefenseLab({ isSpotlight }) {
           />
           <div className="xss-safe-box">
             <div className="xss-safe-label">
-              SALIDA SEGURA ({xssStrippedCount} etiquetas neutralizadas):
+              SALIDA SEGURA ({xssStrippedCount} etiquetas eliminadas):
             </div>
             <div className="mono" style={{ fontSize: '0.84rem' }}>
               {sanitizeNote(xssInput, 160) || '(vacío)'}
@@ -528,12 +528,14 @@ export default function DefenseLab({ isSpotlight }) {
 
         {/* 4. Criptografía SHA-256 */}
         <article className="card interactive-card">
-          <span className="badge badge-ai">4. Web Crypto API (SHA-256)</span>
+          <div className="lab-kicker mono tone-accent">
+            04 · WEB CRYPTO API (SHA-256)
+          </div>
           <h3 className="lab-card-title">Sello criptográfico en vivo</h3>
           <div className="lab-howto">
-            <strong>Cómo comprobarlo:</strong> Pulsa «Sellar» y luego «Alterar
-            +1 €» para comprobar el efecto avalancha del hash SHA-256 de 64
-            caracteres.
+            <strong>Criptografía nativa del navegador:</strong> Pulsa «Sellar» y
+            luego «Alterar +1 €» para ver cómo cambia por completo la huella
+            SHA-256 de 64 caracteres.
           </div>
           <input
             className="xss-input mono"
@@ -545,9 +547,11 @@ export default function DefenseLab({ isSpotlight }) {
           </div>
           <div className="lab-footer-row">
             <span
-              className={`badge ${cryptoIntact ? 'badge-ok' : 'badge-critical'}`}
+              className={`status-inline-text mono ${
+                cryptoIntact ? 'tone-ok' : 'tone-critical'
+              }`}
             >
-              {cryptoIntact ? 'INTEGRIDAD VERIFICADA' : 'ALTERACIÓN DETECTADA'}
+              ● {cryptoIntact ? 'INTEGRIDAD VERIFICADA' : 'ALTERACIÓN DETECTADA'}
             </span>
             <div style={{ display: 'flex', gap: '0.4rem' }}>
               <button
@@ -575,13 +579,13 @@ export default function DefenseLab({ isSpotlight }) {
 
         {/* 5. Anti-CSRF + Idempotencia */}
         <article className="card interactive-card">
-          <span className="badge badge-high">
-            5. Anti-CSRF + Idempotencia (409)
-          </span>
+          <div className="lab-kicker mono tone-warn">
+            05 · ANTI-CSRF + IDEMPOTENCIA (409)
+          </div>
           <h3 className="lab-card-title">Prevención de doble cobro</h3>
           <div className="lab-howto">
-            <strong>Cómo comprobarlo:</strong> Pulsa «Enviar orden» dos veces
-            con la misma clave para disparar <strong>HTTP 409</strong>, o envía
+            <strong>Cómo comprobarlo:</strong> Envía dos veces la misma orden
+            con idéntica clave para provocar <strong>HTTP 409</strong>, o lanza
             un CSRF forjado (<strong>403</strong>).
           </div>
           <div
@@ -630,16 +634,16 @@ export default function DefenseLab({ isSpotlight }) {
           </div>
         </article>
 
-        {/* 6. Auditoría Hardening REAL */}
+        {/* 6. Diagnóstico de Seguridad Web */}
         <article className="card interactive-card">
-          <span className="badge badge-ok">
-            6. Auditoría Hardening Real (CSP + DOM)
-          </span>
-          <h3 className="lab-card-title">Diagnóstico real en vivo</h3>
+          <div className="lab-kicker mono tone-ok">
+            06 · DIAGNÓSTICO DE SEGURIDAD WEB
+          </div>
+          <h3 className="lab-card-title">Inspección real del navegador</h3>
           <div className="lab-howto">
-            <strong>Cómo comprobarlo:</strong> Inspecciona las etiquetas de
-            seguridad reales del DOM, ejecuta un payload real de CSV Injection y
-            vuelca la evidencia en <span className="mono">F12</span>.
+            <strong>Qué comprueba de verdad:</strong> Lee las cabeceras de
+            seguridad del HTML actual (CSP y Referrer), audita enlaces externos
+            y ejecuta una prueba real contra inyección de fórmulas Excel.
           </div>
           <div className="inline-controls" style={{ alignItems: 'center' }}>
             <button className="btn-primary" onClick={handleRunBrowserAudit}>
@@ -656,7 +660,7 @@ export default function DefenseLab({ isSpotlight }) {
             <table className="sample-table mono">
               <thead>
                 <tr>
-                  <th>Prueba real</th>
+                  <th>Comprobación real</th>
                   <th>Resultado</th>
                 </tr>
               </thead>

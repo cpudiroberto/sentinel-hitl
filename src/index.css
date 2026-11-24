@@ -1483,3 +1483,369 @@ button:disabled {
     animation: none !important;
   }
 }
+/* Semáforo operativo del escudo y cabecera (Verde = activo, Naranja = pausa, Rojo = sin conexión) */
+.live-dot.state-active {
+  background: #22c55e;
+  animation: pulseRing 2s infinite;
+}
+
+.live-dot.state-paused {
+  background: #f59e0b;
+  animation: none;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.28);
+}
+
+.live-dot.state-offline {
+  background: #ef4444;
+  animation: pulseDanger 1.3s infinite;
+}
+
+.text-state-active { color: #86efac; }
+.text-state-paused { color: #fcd34d; }
+.text-state-offline { color: #fca5a5; }
+
+.shield-4d-btn.state-active {
+  border-color: rgba(134, 239, 172, 0.78);
+  box-shadow:
+    0 0 24px rgba(34, 197, 94, 0.45),
+    0 5px 0 #07132c,
+    inset 0 2px 7px rgba(255, 255, 255, 0.45);
+}
+
+.shield-4d-btn.state-paused {
+  background: radial-gradient(circle at 28% 22%, #fbbf24 0%, #b45309 58%, #451a03 100%);
+  border-color: rgba(253, 224, 71, 0.78);
+  box-shadow: 0 0 20px rgba(245, 158, 11, 0.45), 0 4px 0 #1c1917;
+  animation: none;
+}
+
+.shield-4d-btn.state-offline {
+  background: radial-gradient(circle at 28% 22%, #f87171 0%, #b91c1c 58%, #450a0a 100%);
+  border-color: rgba(254, 202, 202, 0.78);
+  box-shadow: 0 0 22px rgba(239, 68, 68, 0.55), 0 4px 0 #1c1917;
+  animation: none;
+}
+
+/* Telemetría editorial para casos (sin pastillas/tags) */
+.telemetry-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.42rem;
+  margin-bottom: 0.42rem;
+  font-size: 0.8rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px dashed var(--border);
+}
+
+.telemetry-risk {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.38rem;
+  font-weight: 800;
+  font-size: 0.84rem;
+}
+
+.telemetry-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.telemetry-dot.tone-ok { background: var(--success); }
+.telemetry-dot.tone-warn { background: var(--warning); }
+.telemetry-dot.tone-critical { background: var(--danger); }
+
+.tone-ok { color: var(--success); }
+.tone-warn { color: var(--warning); }
+.tone-critical { color: var(--danger); }
+.tone-accent { color: var(--accent); }
+
+.telemetry-sep {
+  color: var(--border);
+  font-weight: 700;
+}
+
+.telemetry-cat {
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.telemetry-level {
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.telemetry-id {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+}
+
+.telemetry-cluster {
+  font-weight: 800;
+  color: var(--warning);
+}
+
+.col-counter {
+  font-size: 1.05rem;
+  font-weight: 800;
+  border-bottom: 2px solid currentColor;
+  padding: 0 0.25rem;
+}
+
+.monitor-status-text,
+.status-inline-text {
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+/* Estilo editorial sin tags para Módulo 2 (kickers) y Módulo 3 (Ingeniería y Autor) */
+.lab-kicker,
+.editorial-kicker {
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 0.55rem;
+}
+
+.editorial-kicker {
+  color: var(--accent);
+}
+
+.editorial-card-heading {
+  margin: 0.2rem 0 0.5rem;
+  font-size: 1.28rem;
+  font-weight: 800;
+}
+
+.editorial-lead {
+  margin: 0 0 1rem;
+  font-size: 0.92rem;
+  color: var(--text-muted);
+}
+
+.spec-ledger {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin-top: 0.6rem;
+}
+
+.spec-cell {
+  background: var(--surface-muted);
+  border-left: 3px solid var(--primary);
+  border-radius: 8px;
+  padding: 0.55rem 0.75rem;
+}
+
+.spec-key {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 700;
+}
+
+.spec-val {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--text);
+  margin-top: 0.12rem;
+}
+
+.author-links-bar {
+  display: flex;
+  gap: 0.7rem;
+  flex-wrap: wrap;
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+
+/* Controles N+1 en dos filas equilibradas */
+.bench-control-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.bench-control-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.bench-btn-group {
+  display: flex;
+  gap: 0.38rem;
+  flex-wrap: wrap;
+}
+
+/* Prevención de palabras huérfanas en tutorial */
+.tour-body-text {
+  margin: 0 0 1.25rem;
+  font-size: 0.96rem;
+  color: var(--text-muted);
+  text-wrap: pretty;
+}
+
+/* Biblioteca Normativa en formato Libro (2 columnas: Índice + Página) */
+.modal-panel.modal-book {
+  max-width: 920px;
+}
+
+.book-topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.9rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.9rem;
+}
+
+.book-sync-meta {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 0.25rem;
+}
+
+.book-layout {
+  display: grid;
+  grid-template-columns: 270px minmax(0, 1fr);
+  gap: 1.15rem;
+  align-items: start;
+}
+
+.book-toc {
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.7rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.book-toc-header {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  padding: 0.2rem 0.4rem 0.45rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.book-toc-item {
+  width: 100%;
+  justify-content: flex-start;
+  align-items: flex-start;
+  text-align: left;
+  background: transparent;
+  color: var(--text);
+  padding: 0.6rem 0.65rem;
+  border-radius: 9px;
+  border: 1px solid transparent;
+  gap: 0.55rem;
+}
+
+.book-toc-item:hover {
+  background: var(--surface);
+  border-color: var(--border);
+}
+
+.book-toc-item.active {
+  background: var(--surface);
+  border-color: var(--primary);
+  border-left: 4px solid var(--primary);
+}
+
+.book-toc-num {
+  font-size: 0.74rem;
+  font-weight: 800;
+  color: var(--accent);
+  white-space: nowrap;
+  padding-top: 0.1rem;
+}
+
+.book-toc-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  font-size: 0.82rem;
+}
+
+.book-toc-text small {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.book-page {
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.25rem 1.35rem;
+}
+
+.book-page-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  padding-bottom: 0.7rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 0.8rem;
+}
+
+.book-page-title {
+  margin: 0 0 0.25rem;
+  font-size: 1.2rem;
+  font-weight: 800;
+}
+
+.book-page-meta {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  margin-bottom: 1rem;
+}
+
+.book-section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--primary);
+  border-radius: 9px;
+  padding: 0.85rem 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.book-section-warn { border-left-color: var(--warning); }
+.book-section-ok { border-left-color: var(--success); }
+
+.book-section h5 {
+  margin: 0 0 0.3rem;
+  font-size: 0.86rem;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.book-section p {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--text-muted);
+}
+
+@media (max-width: 780px) {
+  .book-layout,
+  .spec-ledger {
+    grid-template-columns: 1fr;
+  }
+}
