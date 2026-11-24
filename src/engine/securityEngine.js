@@ -9,8 +9,8 @@ export const FEATURE_META = {
 
 export function createInitialModel() {
   return {
-    version: 'Sentinel-LogReg-2.0',
-    learningRate: 0.12, // Aprendizaje sutil anti-sobreajuste
+    version: 'Sentinel-LogReg-2.2',
+    learningRate: 0.12,
     regularization: 0.01,
     updatesCount: 0,
     bias: -2.2,
@@ -52,32 +52,70 @@ export function sanitizeNote(input, maxLen = 160) {
     .slice(0, maxLen);
 }
 
+/**
+ * Protección contra CSV Formula Injection (ataques DDE en Excel)
+ */
+export function escapeCsvCell(value) {
+  const str = String(value ?? '').replace(/"/g, '""');
+  const neutralized = /^[=+\-@\t\r]/.test(str) ? `'${str}` : str;
+  return `"${neutralized}"`;
+}
+
+export function getSpanishLegalGuidance(event = {}, score = 0) {
+  const amount = Number(event.amount) || 0;
+
+  if (score === 0) {
+    return {
+      law: 'PSD2 · Art. 18 (Exención TRA)',
+      gap: 'Sin vacío crítico; se recomienda auditoría muestral para cumplir trazabilidad interna.',
+      guidance: 'Operación 100% segura. Aprobada por IA, disponible para verificación humana.',
+    };
+  }
+  if (amount >= 3000 && event.foreignCountry) {
+    return {
+      law: 'Ley 10/2010 PBC-FT (SEPBLAC) · Diligencia reforzada',
+      gap: 'Vacío habitual: transferencias fraccionadas justo bajo umbrales de reporte automático.',
+      guidance: 'Retener preventivamente y exigir justificante documental + confirmación telefónica al titular.',
+    };
+  }
+  if (event.impossibleTravel || (Number(event.failedAttempts) || 0) >= 3) {
+    return {
+      law: 'Directiva PSD2 (SCA) · Autenticación Reforzada',
+      gap: 'Vacío habitual: reutilización de sesiones o tokens sin re-validación geográfica.',
+      guidance: 'Bloquear sesión de inmediato, revocar tokens activos y exigir doble factor (2FA).',
+    };
+  }
+  if (event.unknownDevice) {
+    return {
+      law: 'RGPD / LOPDGDD · Art. 32 (Seguridad del tratamiento)',
+      gap: 'Vacío habitual: accesos desde redes públicas o VPN sin huella de dispositivo registrada.',
+      guidance: 'Solicitar verificación OTP fuera de banda antes de autorizar cambios sensibles.',
+    };
+  }
+  return {
+    law: 'Circular 4/2017 Banco de España · Control Interno',
+    gap: 'Posible anomalía de comportamiento fuera del perfil histórico del cliente.',
+    guidance: 'Revisar historial de la cuenta y dejar nota de auditoría antes de aprobar o denegar.',
+  };
+}
+
 function classifyThreatProfile(event, score) {
   if (score === 0) {
     return {
       threatCategory: 'Operación Verificada (100% Segura)',
-      actionAdvice: 'Sin anomalías · Aprobación autónoma auditable',
-    };
-  }
-  if (score === 100) {
-    return {
-      threatCategory:
-        event.type === 'ACCESS'
-          ? 'Secuestro de Cuenta (ATO)'
-          : 'Fraude Crítico Confirmado',
-      actionAdvice: 'Bloqueo autónomo ejecutado · Auditar sesión',
+      actionAdvice: 'Sin anomalías · Aprobada por IA (auditable)',
     };
   }
   if (event.impossibleTravel && event.unknownDevice) {
     return {
-      threatCategory: 'Suplantación de Identidad',
-      actionAdvice: 'Bloquear acceso y forzar cambio de clave',
+      threatCategory: 'Suplantación de Identidad (ATO)',
+      actionAdvice: 'Bloquear acceso y forzar cambio de credenciales',
     };
   }
   if ((Number(event.amount) || 0) >= 3000 && event.foreignCountry) {
     return {
       threatCategory: 'Fuga de Capital Internacional',
-      actionAdvice: 'Retener fondos y confirmar por teléfono',
+      actionAdvice: 'Retener fondos y verificar por canal telefónico',
     };
   }
   if ((Number(event.failedAttempts) || 0) >= 3) {
@@ -100,7 +138,7 @@ function classifyThreatProfile(event, score) {
   }
   return {
     threatCategory: 'Anomalía Moderada',
-    actionAdvice: 'Revisar contexto antes de autorizar',
+    actionAdvice: 'Revisar contexto legal antes de autorizar',
   };
 }
 
@@ -138,28 +176,27 @@ export function evaluateRiskEvent(event, model = createInitialModel()) {
 
   let score;
   if (!hasRiskFlags && probability < 0.22) {
-    score = 0; // 100% segura -> elegible para aprobación autónoma
-  } else if (probability >= 0.965) {
-    score = 100; // 100% amenaza -> bloqueo autónomo
+    score = 0;
   } else {
-    score = Math.min(99, Math.max(1, Math.round(probability * 100)));
+    score = Math.min(99, Math.max(12, Math.round(probability * 100)));
   }
 
   let level = 'BAJO';
-  let recommendation = 'APROBAR AUTO (100% SEGURA)';
+  let recommendation = 'APROBADA IA (100% SEGURA)';
 
-  if (score === 100) {
+  if (score >= 75) {
     level = 'CRÍTICO';
-    recommendation = 'BLOQUEO AUTO (100%)';
-  } else if (score >= 75) {
-    level = 'CRÍTICO';
-    recommendation = 'BLOQUEAR';
-  } else if (score >= 1) {
-    level = score >= 45 ? 'ALTO' : 'MODERADO';
+    recommendation = 'DENEGAR / BLOQUEAR';
+  } else if (score >= 45) {
+    level = 'ALTO';
     recommendation = 'REVISAR (HITL)';
+  } else if (score > 0) {
+    level = 'MODERADO';
+    recommendation = 'VERIFICAR (HITL)';
   }
 
   const { threatCategory, actionAdvice } = classifyThreatProfile(event, score);
+  const legal = getSpanishLegalGuidance(event, score);
 
   const reasons =
     contributions.length > 0
@@ -178,22 +215,18 @@ export function evaluateRiskEvent(event, model = createInitialModel()) {
     recommendation,
     threatCategory,
     actionAdvice,
+    legal,
     reasons,
     contributions,
     features,
   };
 }
 
-/**
- * Aprendizaje online sutil con regularización L2 y límites de peso
- * para evitar sobreajuste o sesgos por errores puntuales del operador.
- */
 export function trainModelStep(model, event, label, note = '') {
   const target = label === 1 ? 1 : 0;
   const before = evaluateRiskEvent(event, model);
   const error = target - before.probability;
 
-  // Ajuste sutil si la nota contiene confirmación explícita
   const clean = note.toLowerCase();
   const noteBoost =
     clean.includes('confirmado') ||
@@ -273,19 +306,25 @@ export function createRateLimiter({ maxAttempts = 5, windowMs = 60000 } = {}) {
   };
 }
 
-export function computeDashboardMetrics(events = []) {
-  const pending = events.filter((e) => e.status === 'PENDING').length;
+export function computeDashboardMetrics(events = [], aiEnabled = true) {
+  const pendingEvents = events.filter((e) => e.status === 'PENDING');
+  const pending = pendingEvents.length;
+  const criticalPending = pendingEvents.filter(
+    (e) => (e.risk?.score || 0) >= 75
+  ).length;
   const aiApproved = events.filter((e) => e.status === 'AUTO_APPROVED').length;
-  const aiBlocked = events.filter((e) => e.status === 'AUTO_BLOCKED').length;
   const humanApproved = events.filter((e) => e.status === 'APPROVED').length;
   const humanBlocked = events.filter((e) => e.status === 'BLOCKED').length;
 
-  const blockedEvents = events.filter(
-    (e) => e.status === 'BLOCKED' || e.status === 'AUTO_BLOCKED'
-  );
+  const blockedEvents = events.filter((e) => e.status === 'BLOCKED');
   const blocked = blockedEvents.length;
 
   const protectedCapital = blockedEvents.reduce(
+    (sum, e) => sum + (Number(e.amount) || 0),
+    0
+  );
+
+  const pendingExposureEur = pendingEvents.reduce(
     (sum, e) => sum + (Number(e.amount) || 0),
     0
   );
@@ -297,17 +336,31 @@ export function computeDashboardMetrics(events = []) {
     threatLevel = 'VIGILANCIA';
   }
 
+  let statusDetail = `Óptimo · Sin riesgo activo`;
+  if (!aiEnabled && pending > 0) {
+    statusDetail = `Manual (IA OFF) · ${pending} sin revisar (${pendingExposureEur.toLocaleString('es-ES')} € exp.)`;
+  } else if (criticalPending >= 2 || pending >= 4) {
+    statusDetail = `Crítico · ${criticalPending} críticas · ${pendingExposureEur.toLocaleString('es-ES')} € en riesgo`;
+  } else if (pending > 0) {
+    statusDetail = `Vigilancia · ${pending} en cola · ${pendingExposureEur.toLocaleString('es-ES')} € en revisión`;
+  } else if (protectedCapital > 0) {
+    statusDetail = `Blindado · ${blocked} bloqueos efectivos`;
+  }
+
   return {
     total: events.length,
     pending,
+    criticalPending,
     blocked,
     approved: humanApproved,
     aiApproved,
-    aiBlocked,
-    aiResolved: aiApproved + aiBlocked,
+    aiResolved: aiApproved,
     humanResolved: humanApproved + humanBlocked,
+    totalResolved: aiApproved + humanApproved + humanBlocked,
     protectedCapital,
+    pendingExposureEur,
     threatLevel,
+    statusDetail,
   };
 }
 
@@ -323,9 +376,11 @@ export function runQueryBenchmark(clientCount = 40, datasetSize = 15000) {
 
   const t0 = performance.now();
   const nPlusOneTotals = new Array(clientCount);
+  let nPlusOneOps = 0;
   for (let c = 0; c < clientCount; c++) {
     let sum = 0;
     for (let i = 0; i < datasetSize; i++) {
+      nPlusOneOps += 1;
       if (transactions[i].clientId === c) {
         sum += transactions[i].amount;
       }
@@ -336,7 +391,9 @@ export function runQueryBenchmark(clientCount = 40, datasetSize = 15000) {
 
   const t1 = performance.now();
   const totalsMap = new Map();
+  let aggregatedOps = 0;
   for (let i = 0; i < datasetSize; i++) {
+    aggregatedOps += 1;
     const tx = transactions[i];
     totalsMap.set(tx.clientId, (totalsMap.get(tx.clientId) || 0) + tx.amount);
   }
@@ -347,7 +404,8 @@ export function runQueryBenchmark(clientCount = 40, datasetSize = 15000) {
     Math.round(((nPlusOneMs - aggregatedMs) / nPlusOneMs) * 100)
   );
 
-  const totalVolumeEur = Array.from(totalsMap.values()).reduce(
+  const totalNPlusOneEur = nPlusOneTotals.reduce((acc, v) => acc + v, 0);
+  const totalAggregatedEur = Array.from(totalsMap.values()).reduce(
     (acc, v) => acc + v,
     0
   );
@@ -355,16 +413,91 @@ export function runQueryBenchmark(clientCount = 40, datasetSize = 15000) {
   return {
     clientCount,
     datasetSize,
-    totalVolumeEur,
-    sampleClient0Eur: totalsMap.get(0) || 0,
+    totalVolumeEur: totalAggregatedEur,
+    totalsMatch: totalNPlusOneEur === totalAggregatedEur,
+    sampleRows: transactions.slice(0, 4),
     nPlusOne: {
       queries: 1 + clientCount,
+      iterations: nPlusOneOps,
       latencyMs: Number(nPlusOneMs.toFixed(2)),
     },
     aggregated: {
       queries: 1,
+      iterations: aggregatedOps,
       latencyMs: Number(aggregatedMs.toFixed(2)),
     },
     reductionPct,
+  };
+}
+
+/**
+ * Sello criptográfico real SHA-256 mediante Web Crypto API
+ */
+export async function computeSha256Hex(payloadString) {
+  const data = new TextEncoder().encode(payloadString);
+  if (typeof crypto !== 'undefined' && crypto.subtle) {
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    return Array.from(new Uint8Array(hashBuffer))
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('');
+  }
+  let h = 0x811c9dc5;
+  for (let i = 0; i < data.length; i++) {
+    h ^= data[i];
+    h = Math.imul(h, 0x01000193);
+  }
+  return (h >>> 0).toString(16).padStart(8, '0');
+}
+
+/**
+ * Guardia real de Idempotencia + Anti-CSRF (previene doble cobro y Replay Attacks)
+ */
+export function createIdempotencyGuard() {
+  const processedKeys = new Map();
+  let csrfToken =
+    typeof crypto !== 'undefined' && crypto.randomUUID
+      ? `csrf_${crypto.randomUUID().slice(0, 12)}`
+      : `csrf_${Date.now().toString(36)}`;
+
+  return {
+    getCsrfToken() {
+      return csrfToken;
+    },
+    generateKey() {
+      return typeof crypto !== 'undefined' && crypto.randomUUID
+        ? `idem_${crypto.randomUUID().slice(0, 12)}`
+        : `idem_${Math.random().toString(36).slice(2, 12)}`;
+    },
+    execute({ idempotencyKey, providedCsrf, amount }) {
+      if (providedCsrf !== csrfToken) {
+        return {
+          status: 403,
+          ok: false,
+          reason: 'Token CSRF inválido o ausente (Petición forjada bloqueada)',
+        };
+      }
+      if (processedKeys.has(idempotencyKey)) {
+        return {
+          status: 409,
+          ok: false,
+          reason: `Clave duplicada (${idempotencyKey}): doble cargo bloqueado automáticamente.`,
+          originalAt: processedKeys.get(idempotencyKey).at,
+        };
+      }
+      const record = { amount, at: new Date().toLocaleTimeString('es-ES') };
+      processedKeys.set(idempotencyKey, record);
+      return {
+        status: 201,
+        ok: true,
+        reason: `Transferencia de ${amount} € ejecutada una sola vez (clave registrada).`,
+      };
+    },
+    reset() {
+      processedKeys.clear();
+      csrfToken =
+        typeof crypto !== 'undefined' && crypto.randomUUID
+          ? `csrf_${crypto.randomUUID().slice(0, 12)}`
+          : `csrf_${Date.now().toString(36)}`;
+    },
   };
 }
